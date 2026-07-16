@@ -16,7 +16,8 @@ func NewHandler(svc *Service) *Handler {
 }
 
 func (h *Handler) Register(r *gin.Engine) {
-	r.POST("/customers/login", h.Login)
+	v1 := r.Group("/api/v1")
+	v1.POST("/customers/login", h.Login)
 }
 
 func (h *Handler) Login(c *gin.Context) {

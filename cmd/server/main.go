@@ -1,13 +1,11 @@
 package main
 
 import (
-	"context"
 	"log"
 	"net/http"
 
 	"github.com/dextea-v3/dextea-customer/api/internal/config"
 	"github.com/dextea-v3/dextea-customer/api/internal/customer"
-	"github.com/dextea-v3/dextea-customer/api/internal/demo"
 	"github.com/dextea-v3/dextea-customer/api/internal/mysql"
 	"github.com/dextea-v3/dextea-customer/api/internal/redis"
 	"github.com/dextea-v3/dextea-customer/api/internal/router"
@@ -35,22 +33,12 @@ func main() {
 		defer rdb.Close()
 	}
 
-	// 按业务模块组装依赖：repository -> service -> handler。
-	repo := demo.NewRepository(database)
-	svc := demo.NewService(repo, rdb, cfg)
-	demoHandler := demo.NewHandler(svc)
-
-	// 应用启动时为演示表做幂等建表；无数据库时安全跳过。
-	if err := repo.Migrate(context.Background()); err != nil {
-		log.Fatalf("migrate error: %v", err)
-	}
-
 	// 顾客模块：repository -> service -> handler。
 	customerRepo := customer.NewRepository(database)
 	customerSvc := customer.NewService(customerRepo, rdb, cfg)
 	customerHandler := customer.NewHandler(customerSvc)
 
-	r := router.Setup(cfg, demoHandler, customerHandler)
+	r := router.Setup(cfg, customerHandler)
 
 	addr := ":" + cfg.Port
 	log.Printf("%s listening on %s (env=%s)", cfg.ServiceName, addr, cfg.Environment)
