@@ -1,7 +1,6 @@
 package demo
 
 import (
-	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -44,16 +43,6 @@ func (h *Handler) Health(c *gin.Context) {
 	response.OK(c, resp)
 }
 
-// writeError 把 service/repo 层错误转换为统一的错误响应。
-// 直接复用 response.WriteError：业务异常透传，系统/数据库/网络异常被清洗为通用提示。
-// 对于非业务异常，先记录原始错误到服务器日志，再写出清洗后的对外提示。
-func writeError(c *gin.Context, err error) {
-	if _, ok := bizerror.As(err); !ok {
-		log.Printf("[ERROR] handler error: %+v", err)
-	}
-	response.WriteError(c, err)
-}
-
 // CreateProduct 创建商品（demo 模块保留的唯一业务接口，用于联调测试）。
 func (h *Handler) CreateProduct(c *gin.Context) {
 	var req ProductRequest
@@ -67,7 +56,7 @@ func (h *Handler) CreateProduct(c *gin.Context) {
 	p := &Product{Name: req.Name, Price: req.Price}
 	created, err := h.svc.CreateProduct(c.Request.Context(), p)
 	if err != nil {
-		writeError(c, err)
+		response.HandleError(c, err)
 		return
 	}
 	response.Created(c, created)

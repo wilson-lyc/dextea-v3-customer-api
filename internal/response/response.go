@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"errors"
+	"log"
 	"net"
 	"net/http"
 	"syscall"
@@ -132,6 +133,22 @@ func WriteError(c *gin.Context, err error) {
 	}
 	status, code, msg := classifySystemError(err)
 	Fail(c, status, code, msg)
+}
+
+// HandleError 处理并写出错误响应，同时把非业务异常（数据库/网络/运行异常）
+// 记录到服务器日志，避免信息泄露到前端；业务异常（*bizerror.BizError）只透传不记录日志。
+// handler 层统一调用本函数，无需各业务模块重复编写 writeError 辅助函数。
+//
+// 注意：本函数只负责「对外的响应内容」与「非业务异常的日志记录」。
+// 若业务模块需要额外的上下文日志，可在调用前自行补充。
+func HandleError(c *gin.Context, err error) {
+	if err == nil {
+		return
+	}
+	if _, ok := bizerror.As(err); !ok {
+		log.Printf("[ERROR] handler error: %+v", err)
+	}
+	WriteError(c, err)
 }
 
 // classifySystemError 将非业务异常分类为对外的通用提示。
