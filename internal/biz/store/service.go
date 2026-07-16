@@ -2,12 +2,14 @@ package store
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/redis/go-redis/v9"
 
-	"github.com/dextea-v3/dextea-customer/api/internal/bizerror"
+	"github.com/dextea-v3/dextea-customer/api/internal/common/bizerror"
 )
 
 const geoKey = "dextea:store:location"
@@ -79,6 +81,7 @@ func (s *Service) Nearby(ctx context.Context, req NearbyRequest) ([]NearbyStoreI
 		distance, unit := formatDistance(distKm)
 		items = append(items, NearbyStoreItem{
 			Name:     st.Name,
+			Address:  buildAddress(st.RegionNames, st.Address),
 			Distance: distance,
 			Unit:     unit,
 		})
@@ -105,4 +108,17 @@ func formatDistance(km float64) (float64, string) {
 		return km * 1000, "m"
 	}
 	return km, "km"
+}
+
+// buildAddress 将 region_names（如 ["广东省","广州市","番禺区"]）与详细地址拼接
+// 返回形如 "广东省广州市番禺区xxxxxx" 的完整地址
+func buildAddress(regionNames json.RawMessage, address string) string {
+	if len(regionNames) == 0 {
+		return address
+	}
+	var names []string
+	if err := json.Unmarshal(regionNames, &names); err != nil {
+		return address
+	}
+	return strings.Join(names, "") + address
 }

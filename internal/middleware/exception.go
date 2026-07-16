@@ -9,7 +9,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/dextea-v3/dextea-customer/api/internal/response"
+	"github.com/dextea-v3/dextea-customer/api/internal/common/response"
 )
 
 // ExceptionInterceptor 返回一个 gin 中间件，作为「全局异常拦截器」。

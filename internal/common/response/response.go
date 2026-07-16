@@ -12,7 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/go-sql-driver/mysql"
 
-	"github.com/dextea-v3/dextea-customer/api/internal/bizerror"
+	"github.com/dextea-v3/dextea-customer/api/internal/common/bizerror"
 )
 
 type APIResponse struct {

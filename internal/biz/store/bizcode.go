@@ -1,6 +1,6 @@
 package store
 
-import "github.com/dextea-v3/dextea-customer/api/internal/bizerror"
+import "github.com/dextea-v3/dextea-customer/api/internal/common/bizerror"
 
 var (
 	CodeRedisDisabled = bizerror.BizErrorCode{Code: 42001, Message: "Redis 未启用"}

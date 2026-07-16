@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/dextea-v3/dextea-customer/api/internal/alipay"
-	"github.com/dextea-v3/dextea-customer/api/internal/bizerror"
+	"github.com/dextea-v3/dextea-customer/api/internal/common/bizerror"
 	"github.com/dextea-v3/dextea-customer/api/internal/config"
 	"github.com/dextea-v3/dextea-customer/api/internal/jwt"
 	"github.com/redis/go-redis/v9"

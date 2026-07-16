@@ -3,8 +3,8 @@ package customer
 import (
 	"github.com/gin-gonic/gin"
 
-	"github.com/dextea-v3/dextea-customer/api/internal/bizerror"
-	"github.com/dextea-v3/dextea-customer/api/internal/response"
+	"github.com/dextea-v3/dextea-customer/api/internal/common/bizerror"
+	"github.com/dextea-v3/dextea-customer/api/internal/common/response"
 )
 
 type Handler struct {

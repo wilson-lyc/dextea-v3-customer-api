@@ -7,7 +7,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
-	"github.com/dextea-v3/dextea-customer/api/internal/bizerror"
+	"github.com/dextea-v3/dextea-customer/api/internal/common/bizerror"
 )
 
 type Repository struct {
@@ -18,7 +18,7 @@ func NewRepository(db *sqlx.DB) *Repository {
 	return &Repository{db: db}
 }
 
-const storeColumns = `id, name, region_code, address, status, business_hours, phone, longitude, latitude, account, password, email, created_at, updated_at`
+const storeColumns = `id, name, region_code, region_names, address, status, business_hours, phone, longitude, latitude, account, password, email, created_at, updated_at`
 
 var ErrDBDisabled = bizerror.New(bizerror.CodeDBDisabled)
 
