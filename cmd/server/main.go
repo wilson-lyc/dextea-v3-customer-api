@@ -4,7 +4,7 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/dextea-v3/dextea-customer/api/internal/app"
+	"github.com/dextea-v3/dextea-customer/api/internal/biz"
 	"github.com/dextea-v3/dextea-customer/api/internal/config"
 )
 
@@ -18,7 +18,7 @@ func main() {
 	}
 
 	// 组合根：完成基础设施连接与全部模块装配
-	r, cleanup, err := app.New(cfg)
+	r, cleanup, err := biz.New(cfg)
 	if err != nil {
 		log.Fatalf("init app error: %v", err)
 	}
