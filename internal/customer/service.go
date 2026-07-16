@@ -3,6 +3,7 @@ package customer
 import (
 	"context"
 
+	"github.com/dextea-v3/dextea-customer/api/internal/alipay"
 	"github.com/dextea-v3/dextea-customer/api/internal/bizerror"
 	"github.com/dextea-v3/dextea-customer/api/internal/config"
 	"github.com/dextea-v3/dextea-customer/api/internal/jwt"
@@ -12,20 +13,19 @@ import (
 const defaultNewCustomerNickname = "德贤茶友"
 
 type Service struct {
-	repo    *Repository
-	rdb     *redis.Client
-	cfg     *config.Config
-	alipay  *alipayClient
+	repo   *Repository
+	rdb    *redis.Client
+	cfg    *config.Config
+	alipay *alipay.Client
 }
 
-func NewService(repo *Repository, rdb *redis.Client, cfg *config.Config) *Service {
-	svc := &Service{repo: repo, rdb: rdb, cfg: cfg}
-	if cfg.AlipayAppID != "" && cfg.AlipayPrivateKey != "" {
-		if client, err := newAlipayClient(cfg.AlipayAppID, cfg.AlipayPrivateKey, cfg.AlipayPublicKey, cfg.AlipayGateway); err == nil {
-			svc.alipay = client
-		}
+func NewService(repo *Repository, rdb *redis.Client, cfg *config.Config, alipayClient *alipay.Client) *Service {
+	return &Service{
+		repo:   repo,
+		rdb:    rdb,
+		cfg:    cfg,
+		alipay: alipayClient,
 	}
-	return svc
 }
 
 func (s *Service) Login(ctx context.Context, req LoginRequest) (*LoginResponse, error) {
@@ -80,7 +80,7 @@ func (s *Service) exchangeAlipayOpenID(ctx context.Context, code string) (string
 	if s.alipay == nil {
 		return "", bizerror.New(CodeAlipayNotConfigured)
 	}
-	openID, err := s.alipay.exchangeCode(ctx, code)
+	openID, err := s.alipay.ExchangeCode(ctx, code)
 	if err != nil {
 		return "", bizerror.New(CodeAlipayAuthFailed, err.Error())
 	}

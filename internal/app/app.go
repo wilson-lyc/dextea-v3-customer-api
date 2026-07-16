@@ -2,9 +2,11 @@ package app
 
 import (
 	"fmt"
+	"log"
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/dextea-v3/dextea-customer/api/internal/alipay"
 	"github.com/dextea-v3/dextea-customer/api/internal/config"
 	"github.com/dextea-v3/dextea-customer/api/internal/customer"
 	"github.com/dextea-v3/dextea-customer/api/internal/mysql"
@@ -29,9 +31,20 @@ func New(cfg *config.Config) (*gin.Engine, func(), error) {
 		return nil, nil, fmt.Errorf("open redis: %w", err)
 	}
 
+	// 初始化支付宝客户端（独立于 customer 模块）
+	var alipayClient *alipay.Client
+	if cfg.AlipayAppID != "" && cfg.AlipayPrivateKey != "" {
+		isProduction := cfg.AlipayGateway == "" || cfg.AlipayGateway == "https://openapi.alipay.com/gateway.do"
+		alipayClient, err = alipay.New(cfg.AlipayAppID, cfg.AlipayPrivateKey, cfg.AlipayPublicKey, isProduction)
+		if err != nil {
+			log.Printf("[WARN] 支付宝客户端初始化失败，支付宝登录将不可用: %v", err)
+			// 不阻塞启动，允许降级运行
+		}
+	}
+
 	// 业务模块注册
 	handlers := []server.Registerable{
-		customer.NewModule(database, rdb, cfg),
+		customer.NewModule(database, rdb, cfg, alipayClient),
 	}
 
 	engine := router.Setup(cfg, handlers...)
