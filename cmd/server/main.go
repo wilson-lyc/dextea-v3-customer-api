@@ -12,10 +12,15 @@ import (
 )
 
 func main() {
+	// 加载配置
 	cfg := config.Load()
 
-	// 打开 MySQL 连接（sqlx），供各业务模块的 repository 共用。
-	// 若未配置 DB_HOST / DB_NAME，database 为 nil，健康接口会显示 db:"disabled"。
+	// 配置自检
+	if err := cfg.Validate(); err != nil {
+		log.Fatalf("%s", err.Error())
+	}
+
+	// 连接 MySQL 数据库
 	database, err := mysql.New(cfg.DatabaseDSN())
 	if err != nil {
 		log.Fatalf("open mysql error: %v", err)
@@ -24,7 +29,7 @@ func main() {
 		defer database.Close()
 	}
 
-	// 打开 Redis 连接；若未配置 REDIS_ADDR，rdb 为 nil，健康接口会显示 redis:"disabled"。
+	// 连接 Redis 数据库
 	rdb, err := redis.New(cfg.RedisAddr, cfg.RedisPassword, cfg.RedisDB)
 	if err != nil {
 		log.Fatalf("open redis error: %v", err)
@@ -33,7 +38,7 @@ func main() {
 		defer rdb.Close()
 	}
 
-	// 顾客模块：repository -> service -> handler。
+	// 注册业务模块
 	customerRepo := customer.NewRepository(database)
 	customerSvc := customer.NewService(customerRepo, rdb, cfg)
 	customerHandler := customer.NewHandler(customerSvc)

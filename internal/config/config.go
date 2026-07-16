@@ -1,21 +1,21 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-sql-driver/mysql"
 	"github.com/joho/godotenv"
 )
 
-// Config 保存应用运行所需的配置项。
 type Config struct {
 	Port        string
 	Environment string
 	ServiceName string
 
-	// 数据库配置（MySQL）：拆分为独立字段，DSN 由 DatabaseDSN() 在运行时自动拼接。
 	DBHost           string
 	DBPort           string
 	DBUser           string
@@ -23,28 +23,22 @@ type Config struct {
 	DBName           string
 	DBCharset        string
 	DBParseTime      bool
-	DBLoc            string // 时区，如 Local / UTC，对应 MySQL DSN 的 loc 参数
+	DBLoc            string
 
-	// Redis 配置：RedisAddr 为空表示不启用 Redis。
 	RedisAddr     string
 	RedisPassword string
-	RedisDB       int // 逻辑库编号，默认 0
+	RedisDB       int
 
-	// 支付宝登录配置：AppID 与应用私钥必填；公钥用于校验支付宝响应签名（可选）。
 	AlipayAppID      string
 	AlipayPrivateKey string
 	AlipayPublicKey  string
-	AlipayGateway    string // 留空使用生产网关 openapi.alipay.com
+	AlipayGateway    string
 
-	// JWT 配置：HS256 签名密钥与令牌有效期。
 	JWTSecret      string
-	JWTExpireHours int // 令牌有效期（小时），默认 168（7 天）
+	JWTExpireHours int
 }
 
-// Load 加载配置：优先读取 .env 文件（若存在），再回退到进程环境变量，最后使用默认值。
-// 通过 godotenv 读取项目根目录的 .env，文件不存在时静默忽略（例如生产环境直接注入环境变量）。
 func Load() *Config {
-	// 忽略文件不存在的错误：在容器/生产环境中通常直接注入环境变量。
 	_ = godotenv.Load()
 
 	return &Config{
@@ -75,14 +69,37 @@ func Load() *Config {
 	}
 }
 
-// DatabaseDSN 根据拆分的数据库配置拼接出 MySQL 连接串。
-//
-// 使用 go-sql-driver/mysql 提供的 mysql.Config 来构建，能自动处理密码等字段中的
-// 特殊字符转义，比手写字符串更可靠。生成的 DSN 形如：
-//
-//	user:password@tcp(127.0.0.1:3306)/dbname?charset=utf8mb4&parseTime=true&loc=Local
-//
-// 当 DBHost 或 DBName 为空时返回空串，表示不启用数据库，由上层决定降级行为。
+func (c *Config) Validate() error {
+	var b strings.Builder
+	hasErr := false
+
+	if c.DBHost == "" || c.DBUser == "" || c.DBName == "" {
+		hasErr = true
+		b.WriteString("\n  [MySQL] database configuration is incomplete, please add the following in .env or environment variables:")
+		if c.DBHost == "" {
+			b.WriteString("\n    - DB_HOST")
+		}
+		if c.DBUser == "" {
+			b.WriteString("\n    - DB_USER")
+		}
+		if c.DBName == "" {
+			b.WriteString("\n    - DB_NAME")
+		}
+	}
+
+	if c.RedisAddr == "" {
+		hasErr = true
+		b.WriteString("\n  [Redis] cache is not configured, please add the following in .env or environment variables:")
+		b.WriteString("\n    - REDIS_ADDR")
+	}
+
+	if !hasErr {
+		return nil
+	}
+
+	return fmt.Errorf("startup self-check failed: missing required database/cache configuration, startup is forbidden.%s", b.String())
+}
+
 func (c *Config) DatabaseDSN() string {
 	if c.DBHost == "" || c.DBName == "" {
 		return ""
@@ -108,7 +125,6 @@ func (c *Config) DatabaseDSN() string {
 	return mc.FormatDSN()
 }
 
-// JWTExpireSeconds 返回令牌有效期（秒）。
 func (c *Config) JWTExpireSeconds() int {
 	return c.JWTExpireHours * 3600
 }
