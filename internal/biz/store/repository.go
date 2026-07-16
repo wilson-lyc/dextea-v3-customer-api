@@ -18,7 +18,7 @@ func NewRepository(db *sqlx.DB) *Repository {
 	return &Repository{db: db}
 }
 
-const storeColumns = `id, name, region_code, region_names, address, status, business_hours, phone, longitude, latitude, account, password, email, created_at, updated_at`
+const storeColumns = `id, name, region_code, region_name, address, status, business_hours, phone, longitude, latitude, account, password, email, created_at, updated_at`
 
 var ErrDBDisabled = bizerror.New(bizerror.CodeDBDisabled)
 

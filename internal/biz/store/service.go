@@ -81,7 +81,7 @@ func (s *Service) Nearby(ctx context.Context, req NearbyRequest) ([]NearbyStoreI
 		distance, unit := formatDistance(distKm)
 		items = append(items, NearbyStoreItem{
 			Name:     st.Name,
-			Address:  buildAddress(st.RegionNames, st.Address),
+			Address:  buildAddress(st.RegionName, st.Address),
 			Distance: distance,
 			Unit:     unit,
 		})
@@ -110,14 +110,14 @@ func formatDistance(km float64) (float64, string) {
 	return km, "km"
 }
 
-// buildAddress 将 region_names（如 ["广东省","广州市","番禺区"]）与详细地址拼接
+// buildAddress 将 region_name（如 ["广东省","广州市","番禺区"]）与详细地址拼接
 // 返回形如 "广东省广州市番禺区xxxxxx" 的完整地址
-func buildAddress(regionNames json.RawMessage, address string) string {
-	if len(regionNames) == 0 {
+func buildAddress(regionName json.RawMessage, address string) string {
+	if len(regionName) == 0 {
 		return address
 	}
 	var names []string
-	if err := json.Unmarshal(regionNames, &names); err != nil {
+	if err := json.Unmarshal(regionName, &names); err != nil {
 		return address
 	}
 	return strings.Join(names, "") + address

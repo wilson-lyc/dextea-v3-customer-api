@@ -9,8 +9,8 @@ type Store struct {
 	ID            int64           `db:"id"             json:"id"`
 	Name          string          `db:"name"           json:"name"`
 	RegionCode    string          `db:"region_code"    json:"region_code"`
-	// RegionNames 地区名称层级，格式如 ["广东省","广州市","番禺区"]
-	RegionNames   json.RawMessage `db:"region_names"   json:"region_names"`
+	// RegionName 地区名称层级，格式如 ["广东省","广州市","番禺区"]
+	RegionName    json.RawMessage `db:"region_name"    json:"region_name"`
 	Address       string          `db:"address"        json:"address"`
 	Status        int             `db:"status"         json:"status"`
 	BusinessHours string          `db:"business_hours" json:"business_hours"`
