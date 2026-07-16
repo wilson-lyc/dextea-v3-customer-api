@@ -5,8 +5,8 @@ import "time"
 type Customer struct {
 	ID           int64     `db:"id"             json:"id"`
 	Name         string    `db:"name"           json:"name"`
-	WeixinOpenID string    `db:"weixin_open_id"  json:"weixin_open_id"`
-	AlipayOpenID string    `db:"alipay_open_id"  json:"alipay_open_id"`
+	WeixinOpenID string    `db:"weixin_open_id"  json:"-"`
+	AlipayOpenID string    `db:"alipay_open_id"  json:"-"`
 	Email        string    `db:"email"          json:"email"`
 	Phone        string    `db:"phone"          json:"phone"`
 	Password     string    `db:"password"       json:"-"`
