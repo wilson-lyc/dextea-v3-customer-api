@@ -1,34 +1,48 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/http"
 
 	"github.com/dextea-v3/dextea-customer/api/internal/config"
-	"github.com/dextea-v3/dextea-customer/api/internal/db"
 	"github.com/dextea-v3/dextea-customer/api/internal/demo"
+	"github.com/dextea-v3/dextea-customer/api/internal/mysql"
+	"github.com/dextea-v3/dextea-customer/api/internal/redis"
 	"github.com/dextea-v3/dextea-customer/api/internal/router"
 )
 
 func main() {
 	cfg := config.Load()
 
-	// 打开数据库连接（sqlx），供各业务模块的 repository 共用。
-	// 若未配置 DATABASE_DSN，db 为 nil，健康接口会显示 db:"disabled"。
-	// 接入真实数据库时，需在 main 中匿名导入对应驱动，例如：
-	//   import _ "modernc.org/sqlite"
-	database, err := db.New(cfg.DatabaseDriver, cfg.DatabaseDSN)
+	// 打开 MySQL 连接（sqlx），供各业务模块的 repository 共用。
+	// 若未配置 DB_HOST / DB_NAME，database 为 nil，健康接口会显示 db:"disabled"。
+	database, err := mysql.New(cfg.DatabaseDSN())
 	if err != nil {
-		log.Fatalf("open db error: %v", err)
+		log.Fatalf("open mysql error: %v", err)
 	}
 	if database != nil {
 		defer database.Close()
 	}
 
+	// 打开 Redis 连接；若未配置 REDIS_ADDR，rdb 为 nil，健康接口会显示 redis:"disabled"。
+	rdb, err := redis.New(cfg.RedisAddr, cfg.RedisPassword, cfg.RedisDB)
+	if err != nil {
+		log.Fatalf("open redis error: %v", err)
+	}
+	if rdb != nil {
+		defer rdb.Close()
+	}
+
 	// 按业务模块组装依赖：repository -> service -> handler。
 	repo := demo.NewRepository(database)
-	svc := demo.NewService(repo, cfg)
+	svc := demo.NewService(repo, rdb, cfg)
 	demoHandler := demo.NewHandler(svc)
+
+	// 应用启动时为演示表做幂等建表；无数据库时安全跳过。
+	if err := repo.Migrate(context.Background()); err != nil {
+		log.Fatalf("migrate error: %v", err)
+	}
 
 	r := router.Setup(cfg, demoHandler)
 
