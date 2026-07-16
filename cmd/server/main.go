@@ -4,11 +4,8 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/dextea-v3/dextea-customer/api/internal/app"
 	"github.com/dextea-v3/dextea-customer/api/internal/config"
-	"github.com/dextea-v3/dextea-customer/api/internal/customer"
-	"github.com/dextea-v3/dextea-customer/api/internal/mysql"
-	"github.com/dextea-v3/dextea-customer/api/internal/redis"
-	"github.com/dextea-v3/dextea-customer/api/internal/router"
 )
 
 func main() {
@@ -20,30 +17,12 @@ func main() {
 		log.Fatalf("%s", err.Error())
 	}
 
-	// 连接 MySQL 数据库
-	database, err := mysql.New(cfg.DatabaseDSN())
+	// 组合根：完成基础设施连接与全部模块装配
+	r, cleanup, err := app.New(cfg)
 	if err != nil {
-		log.Fatalf("open mysql error: %v", err)
+		log.Fatalf("init app error: %v", err)
 	}
-	if database != nil {
-		defer database.Close()
-	}
-
-	// 连接 Redis 数据库
-	rdb, err := redis.New(cfg.RedisAddr, cfg.RedisPassword, cfg.RedisDB)
-	if err != nil {
-		log.Fatalf("open redis error: %v", err)
-	}
-	if rdb != nil {
-		defer rdb.Close()
-	}
-
-	// 注册业务模块
-	customerRepo := customer.NewRepository(database)
-	customerSvc := customer.NewService(customerRepo, rdb, cfg)
-	customerHandler := customer.NewHandler(customerSvc)
-
-	r := router.Setup(cfg, customerHandler)
+	defer cleanup()
 
 	addr := ":" + cfg.Port
 	log.Printf("%s listening on %s (env=%s)", cfg.ServiceName, addr, cfg.Environment)

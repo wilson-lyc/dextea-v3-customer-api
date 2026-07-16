@@ -4,12 +4,15 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/dextea-v3/dextea-customer/api/internal/config"
-	"github.com/dextea-v3/dextea-customer/api/internal/customer"
 	"github.com/dextea-v3/dextea-customer/api/internal/middleware"
+	"github.com/dextea-v3/dextea-customer/api/internal/server"
 )
 
 // Setup 构建并返回配置好的 gin 引擎。
-func Setup(cfg *config.Config, customerHandler *customer.Handler) *gin.Engine {
+//
+// handlers 为可变参数，由各业务模块实现 server.Registerable 后注入，
+// router 不再依赖任何具体业务类型，新增模块无需改动此处。
+func Setup(cfg *config.Config, handlers ...server.Registerable) *gin.Engine {
 	if cfg.Environment == "production" {
 		gin.SetMode(gin.ReleaseMode)
 	}
@@ -20,7 +23,9 @@ func Setup(cfg *config.Config, customerHandler *customer.Handler) *gin.Engine {
 	r.Use(gin.Logger(), middleware.ExceptionInterceptor())
 
 	// 各业务模块自行注册路由，router 只负责引擎与全局中间件。
-	customerHandler.Register(r)
+	for _, h := range handlers {
+		h.Register(r)
+	}
 
 	return r
 }
