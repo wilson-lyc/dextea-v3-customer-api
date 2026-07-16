@@ -1,7 +1,7 @@
 // Package alipay 封装支付宝 OAuth 授权码换取用户标识（OpenID）的能力。
 //
-// 本包不依赖任何第三方 SDK，直接使用标准库 net/http 调用支付宝 OpenAPI 网关，
-// 并按支付宝 OpenAPI 规范完成 RSA2 签名与响应验签。
+// 本包不依赖任何第三方 SDK，直接使用标准库 net/http 调用支付宝 v3 OpenAPI（REST 风格），
+// 并按支付宝 v3 规范完成请求加签（Authorization: ALIPAY-SHA256withRSA）与响应验签。
 //
 // 参考：https://opendocs.alipay.com/open-v3/ba2f3ec8_alipay.system.oauth.token
 package alipay
@@ -20,27 +20,24 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
-	"sort"
+	"strconv"
 	"strings"
 	"time"
 )
 
 const (
-	productionGateway = "https://openapi.alipay.com/gateway.do"
-	sandboxGateway    = "https://openapi-sandbox.dl.alipaydev.com/gateway.do"
+	// v3 网关地址（路径以 /v3/ 开头）。
+	productionGateway = "https://openapi.alipay.com"
+	sandboxGateway    = "https://openapi-sandbox.dl.alipaydev.com"
 
-	oauthTokenMethod = "alipay.system.oauth.token"
-	responseSuffix   = "_response"
-	fieldSign        = "sign"
-	fieldErrorResp   = "error_response"
-	signTypeRSA2     = "RSA2"
-	charsetUTF8      = "utf-8"
-	formatJSON       = "JSON"
-	apiVersion       = "1.0"
+	// alipay.system.oauth.token 的 v3 路径（不含域名）。
+	v3OAuthTokenPath = "/v3/alipay/system/oauth/token"
+
+	// v3 鉴权头 scheme。
+	authScheme = "ALIPAY-SHA256withRSA"
 )
 
-// Client 是对支付宝网关的轻量封装。
+// Client 是对支付宝 v3 OpenAPI 的轻量封装。
 type Client struct {
 	appID      string
 	gateway    string
@@ -91,31 +88,31 @@ func New(appID, privateKey, alipayPublicKey string, isProduction bool) (*Client,
 
 // ExchangeCode 用前端授权 code 换取支付宝用户标识（OpenID）。
 //
-// alipay.system.oauth.token 的 grant_type/code 是顶层表单参数（非 biz_content），
-// 成功响应为 alipay_system_oauth_token_response，且不含顶层 code 字段。
+// 调用 v3 接口 POST /v3/alipay/system/oauth/token，请求体为 JSON：
+//
+//	{"grantType":"authorization_code","code":"xxx"}
 func (c *Client) ExchangeCode(ctx context.Context, code string) (string, error) {
-	values := url.Values{}
-	values.Set("app_id", c.appID)
-	values.Set("method", oauthTokenMethod)
-	values.Set("format", formatJSON)
-	values.Set("charset", charsetUTF8)
-	values.Set("sign_type", signTypeRSA2)
-	values.Set("timestamp", time.Now().Format("2006-01-02 15:04:05"))
-	values.Set("version", apiVersion)
-	values.Set("grant_type", "authorization_code")
-	values.Set("code", code)
+	bodyBytes, err := json.Marshal(map[string]string{
+		"grant_type": "authorization_code",
+		"code":       code,
+	})
+	if err != nil {
+		return "", fmt.Errorf("构造支付宝请求体失败: %w", err)
+	}
+	body := string(bodyBytes)
 
-	sign, err := c.sign(values)
+	auth, err := c.buildAuthorization(http.MethodPost, v3OAuthTokenPath, body)
 	if err != nil {
 		return "", fmt.Errorf("生成支付宝签名失败: %w", err)
 	}
-	values.Set(fieldSign, sign)
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.gateway, strings.NewReader(values.Encode()))
+	reqURL := c.gateway + v3OAuthTokenPath
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, reqURL, strings.NewReader(body))
 	if err != nil {
 		return "", fmt.Errorf("构造支付宝请求失败: %w", err)
 	}
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded;charset=utf-8")
+	req.Header.Set("Authorization", auth)
+	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
@@ -123,81 +120,41 @@ func (c *Client) ExchangeCode(ctx context.Context, code string) (string, error) 
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
+	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "", fmt.Errorf("读取支付宝响应失败: %w", err)
 	}
 
-	return c.parseOAuthResponse(body)
+	// 配置了支付宝公钥时，对响应做验签（网关/非业务错误可能无签名头，此时跳过）。
+	if err := c.verifyResponse(respBody, resp.Header); err != nil {
+		return "", fmt.Errorf("支付宝响应验签失败: %w (body=%s)", err, string(respBody))
+	}
+
+	return c.parseOAuthResponseV3(respBody)
 }
 
-// parseOAuthResponse 解析网关返回的 JSON，处理 error_response 与成功响应，
-// 并在配置了支付宝公钥时完成响应验签。
-func (c *Client) parseOAuthResponse(body []byte) (string, error) {
-	var raw map[string]json.RawMessage
-	if err := json.Unmarshal(body, &raw); err != nil {
-		return "", fmt.Errorf("解析支付宝响应失败: %w (body=%s)", err, string(body))
-	}
+// buildAuthorization 按 v3 规范生成 Authorization 头值：
+//
+//	authString = "app_id=...,nonce=...,timestamp=..."
+//	待签名串    = authString\n<METHOD>\n<URI>\n<body>\n
+//	Authorization = "ALIPAY-SHA256withRSA <authString>,sign=<RSA2签名>"
+func (c *Client) buildAuthorization(method, uri, body string) (string, error) {
+	nonce := newNonce()
+	timestamp := strconv.FormatInt(time.Now().UnixMilli(), 10)
+	authString := "app_id=" + c.appID + ",nonce=" + nonce + ",timestamp=" + timestamp
+	content := authString + "\n" + method + "\n" + uri + "\n" + body + "\n"
 
-	// 业务错误（error_response 中才会出现 code/sub_code 等字段）
-	if errRaw, ok := raw[fieldErrorResp]; ok {
-		var e oauthError
-		_ = json.Unmarshal(errRaw, &e)
-		return "", fmt.Errorf("支付宝授权失败: %s(%s) %s", e.SubCode, e.Code, e.SubMsg)
+	sig, err := c.sign(content)
+	if err != nil {
+		return "", err
 	}
-
-	bizField := oauthTokenMethod + responseSuffix
-	bizRaw, ok := raw[bizField]
-	if !ok {
-		return "", fmt.Errorf("支付宝响应缺少业务字段 %q (body=%s)", bizField, string(body))
-	}
-
-	// 响应验签（可选）：用支付宝公钥校验返回体上的 sign。
-	if c.publicKey != nil {
-		if signRaw, ok := raw[fieldSign]; ok && len(signRaw) > 1 {
-			if err := c.verify(bizRaw, strings.Trim(string(signRaw), `"`)); err != nil {
-				return "", fmt.Errorf("支付宝响应验签失败: %w", err)
-			}
-		}
-	}
-
-	var r oauthTokenResponse
-	if err := json.Unmarshal(bizRaw, &r); err != nil {
-		return "", fmt.Errorf("解析支付宝响应体失败: %w", err)
-	}
-
-	// 新版响应返回 open_id（也可能同时返回 user_id），优先 user_id，回退 open_id。
-	userID := r.UserId
-	if userID == "" {
-		userID = r.OpenId
-	}
-	if userID == "" {
-		return "", errors.New("支付宝未返回用户标识(open_id/user_id)")
-	}
-	return userID, nil
+	return authScheme + " " + authString + ",sign=" + sig, nil
 }
 
-// sign 按支付宝规范生成 RSA2 签名：
-// 将除 sign 外的所有参数按 key 升序拼成 k=v&k=v（值不 urlencode），
-// 对拼接串做 SHA256WithRSA 签名后 base64 编码。
-func (c *Client) sign(values url.Values) (string, error) {
-	keys := make([]string, 0, len(values))
-	for k := range values {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-
-	var pairs []string
-	for _, k := range keys {
-		for _, v := range values[k] {
-			pairs = append(pairs, k+"="+v)
-		}
-	}
-	sort.Strings(pairs)
-	signStr := strings.Join(pairs, "&")
-
+// sign 对内容做 SHA256WithRSA 签名后 base64 编码。
+func (c *Client) sign(content string) (string, error) {
 	h := sha256.New()
-	h.Write([]byte(signStr))
+	h.Write([]byte(content))
 	sig, err := rsa.SignPKCS1v15(rand.Reader, c.privateKey, crypto.SHA256, h.Sum(nil))
 	if err != nil {
 		return "", err
@@ -205,15 +162,67 @@ func (c *Client) sign(values url.Values) (string, error) {
 	return base64.StdEncoding.EncodeToString(sig), nil
 }
 
-// verify 校验支付宝响应签名：对原始业务 JSON 做 SHA256，再用支付宝公钥验签。
-func (c *Client) verify(bizRaw json.RawMessage, signB64 string) error {
+// verifyResponse 用响应头中的 alipay-signature / alipay-timestamp / alipay-nonce 验签响应体。
+// 待验签串 = timestamp\nnonce\nbody\n
+func (c *Client) verifyResponse(body []byte, headers http.Header) error {
+	if c.publicKey == nil {
+		return nil
+	}
+	sig := headers.Get("alipay-signature")
+	ts := headers.Get("alipay-timestamp")
+	nonce := headers.Get("alipay-nonce")
+	if sig == "" || ts == "" || nonce == "" {
+		return nil
+	}
+	content := ts + "\n" + nonce + "\n" + string(body) + "\n"
+	return c.verify(content, sig)
+}
+
+// verify 用支付宝公钥校验 SHA256WithRSA 签名。
+func (c *Client) verify(content, signB64 string) error {
 	sig, err := base64.StdEncoding.DecodeString(signB64)
 	if err != nil {
 		return fmt.Errorf("签名 base64 解码失败: %w", err)
 	}
 	h := sha256.New()
-	h.Write(bizRaw)
+	h.Write([]byte(content))
 	return rsa.VerifyPKCS1v15(c.publicKey, crypto.SHA256, h.Sum(nil), sig)
+}
+
+// parseOAuthResponseV3 解析 v3 的 JSON 响应。
+// 成功响应为 camelCase 字段（openId / userId 等），无 code 字段；
+// 错误响应含 code / subCode 字段。
+func (c *Client) parseOAuthResponseV3(body []byte) (string, error) {
+	var errResp oauthErrorV3
+	if err := json.Unmarshal(body, &errResp); err == nil {
+		if errResp.SubCode != "" || (errResp.Code != "" && errResp.Code != "10000") {
+			return "", fmt.Errorf("支付宝授权失败: %s(%s) %s", errResp.SubCode, errResp.Code, errResp.SubMsg)
+		}
+	}
+
+	var r oauthTokenResponseV3
+	if err := json.Unmarshal(body, &r); err != nil {
+		return "", fmt.Errorf("解析支付宝响应失败: %w (body=%s)", err, string(body))
+	}
+
+	// 优先 user_id，回退 open_id。
+	userID := r.UserId
+	if userID == "" {
+		userID = r.OpenId
+	}
+	if userID == "" {
+		return "", errors.New("支付宝未返回用户标识(openId/userId)")
+	}
+	return userID, nil
+}
+
+// newNonce 生成 RFC4122 v4 UUID 作为随机串。
+func newNonce() string {
+	b := make([]byte, 16)
+	_, _ = rand.Read(b)
+	b[6] = (b[6] & 0x0f) | 0x40
+	b[8] = (b[8] & 0x3f) | 0x80
+	return fmt.Sprintf("%x-%x-%x-%x-%x", b[0:4], b[4:6], b[6:8], b[8:10], b[10:16])
 }
 
 // parsePrivateKey 解析应用私钥，支持 PEM 文本与裸 base64，PKCS1/PKCS8 自动识别。
@@ -281,16 +290,16 @@ func parseDERPublicKey(der []byte) (*rsa.PublicKey, error) {
 	return rsaPub, nil
 }
 
-// oauthError 对应支付宝 error_response 结构。
-type oauthError struct {
+// oauthErrorV3 对应 v3 错误响应（snake_case）。
+type oauthErrorV3 struct {
 	Code    string `json:"code"`
 	Msg     string `json:"msg"`
 	SubCode string `json:"sub_code"`
 	SubMsg  string `json:"sub_msg"`
 }
 
-// oauthTokenResponse 对应 alipay_system_oauth_token_response 成功结构。
-type oauthTokenResponse struct {
+// oauthTokenResponseV3 对应 v3 成功响应（snake_case）。
+type oauthTokenResponseV3 struct {
 	UserId       string `json:"user_id"`
 	AccessToken  string `json:"access_token"`
 	ExpiresIn    int64  `json:"expires_in"`

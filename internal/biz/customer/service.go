@@ -56,6 +56,7 @@ func (s *Service) Login(ctx context.Context, req LoginRequest) (*LoginResponse, 
 			Name:         defaultNewCustomerNickname,
 			AlipayOpenID: openID,
 			Status:       1,
+			Platform:     req.Platform.DBValue(),
 		})
 		if err != nil {
 			return nil, err

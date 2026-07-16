@@ -16,7 +16,7 @@ func NewRepository(db *sqlx.DB) *Repository {
 	return &Repository{db: db}
 }
 
-const customerColumns = `id, name, weixin_open_id, alipay_open_id, email, phone, password, status, created_at, updated_at`
+const customerColumns = `id, name, weixin_open_id, alipay_open_id, email, phone, password, status, platform, created_at, updated_at`
 
 func (r *Repository) FindByAlipayOpenID(ctx context.Context, openID string) (*Customer, error) {
 	if r.db == nil {
@@ -50,8 +50,8 @@ func (r *Repository) Create(ctx context.Context, c *Customer) (*Customer, error)
 	if r.db == nil {
 		return nil, ErrDBDisabled
 	}
-	const q = `INSERT INTO customers (name, alipay_open_id, status) VALUES (?, ?, ?)`
-	res, err := r.db.ExecContext(ctx, q, c.Name, c.AlipayOpenID, c.Status)
+	const q = `INSERT INTO customers (name, alipay_open_id, status, platform) VALUES (?, ?, ?, ?)`
+	res, err := r.db.ExecContext(ctx, q, c.Name, c.AlipayOpenID, c.Status, c.Platform)
 	if err != nil {
 		return nil, err
 	}
