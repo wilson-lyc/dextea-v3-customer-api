@@ -1,6 +1,8 @@
 package store
 
 import (
+	"log"
+
 	"github.com/gin-gonic/gin"
 
 	"github.com/dextea-v3/dextea-customer/api/internal/common/bizerror"
@@ -23,7 +25,8 @@ func (h *Handler) Register(r *gin.Engine) {
 func (h *Handler) Nearby(c *gin.Context) {
 	var req NearbyRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
-		response.FailBiz(c, bizerror.New(bizerror.CodeBadRequest, err.Error()))
+		log.Printf("[WARN] store nearby invalid request params: %+v", err)
+		response.FailBiz(c, bizerror.New(bizerror.CodeValidationFail))
 		return
 	}
 

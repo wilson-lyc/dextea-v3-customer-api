@@ -120,14 +120,14 @@ func classifySystemError(err error) (httpStatus, bizCode int, message string) {
 		errors.Is(err, sql.ErrConnDone),
 		errors.Is(err, sql.ErrTxDone),
 		errors.As(err, &mysqlErr):
-		return http.StatusInternalServerError, CodeInternal, "数据库服务异常，请稍后重试"
+		return http.StatusInternalServerError, CodeInternal, "服务器异常，请稍后重试"
 
 	case errors.As(err, &netErr),
 		errors.Is(err, syscall.ECONNREFUSED),
 		errors.Is(err, syscall.ETIMEDOUT):
-		return http.StatusInternalServerError, CodeInternal, "网络连接异常，请稍后重试"
+		return http.StatusInternalServerError, CodeInternal, "服务器异常，请稍后重试"
 
 	default:
-		return http.StatusInternalServerError, CodeInternal, "服务器内部错误，请稍后重试"
+		return http.StatusInternalServerError, CodeInternal, "服务器异常，请稍后重试"
 	}
 }

@@ -1,6 +1,8 @@
 package customer
 
 import (
+	"log"
+
 	"github.com/gin-gonic/gin"
 
 	"github.com/dextea-v3/dextea-customer/api/internal/common/bizerror"
@@ -23,7 +25,8 @@ func (h *Handler) Register(r *gin.Engine) {
 func (h *Handler) Login(c *gin.Context) {
 	var req LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.FailBiz(c, bizerror.New(bizerror.CodeBadRequest, err.Error()))
+		log.Printf("[WARN] customer login invalid request params: %+v", err)
+		response.FailBiz(c, bizerror.New(bizerror.CodeValidationFail))
 		return
 	}
 

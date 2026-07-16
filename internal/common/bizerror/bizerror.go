@@ -11,8 +11,9 @@ var (
 	CodeOK         = BizErrorCode{Code: 0, Message: "ok"}
 	CodeBadRequest = BizErrorCode{Code: 40000, Message: "参数错误"}
 	CodeNotFound   = BizErrorCode{Code: 40400, Message: "资源不存在"}
-	CodeDBDisabled = BizErrorCode{Code: 50300, Message: "数据库未启用"}
-	CodeInternal   = BizErrorCode{Code: 50000, Message: "内部错误"}
+	CodeDBDisabled     = BizErrorCode{Code: 50300, Message: "数据库未启用"}
+	CodeInternal       = BizErrorCode{Code: 50000, Message: "内部错误"}
+	CodeValidationFail = BizErrorCode{Code: 40001, Message: "请求参数不合法"}
 )
 
 type BizError struct {

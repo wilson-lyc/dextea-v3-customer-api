@@ -2,6 +2,7 @@ package customer
 
 import (
 	"context"
+	"log"
 
 	"github.com/dextea-v3/dextea-customer/api/internal/alipay"
 	"github.com/dextea-v3/dextea-customer/api/internal/common/bizerror"
@@ -83,7 +84,8 @@ func (s *Service) exchangeAlipayOpenID(ctx context.Context, code string) (string
 	}
 	openID, err := s.alipay.ExchangeCode(ctx, code)
 	if err != nil {
-		return "", bizerror.New(CodeAlipayAuthFailed, err.Error())
+		log.Printf("[ERROR] alipay exchange openid failed: %+v", err)
+		return "", bizerror.New(CodeAlipayAuthFailed)
 	}
 	return openID, nil
 }
