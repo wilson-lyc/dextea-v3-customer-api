@@ -1,9 +1,3 @@
-// Package alipay 封装支付宝 OAuth 授权码换取用户标识（OpenID）的能力。
-//
-// 本包不依赖任何第三方 SDK，直接使用标准库 net/http 调用支付宝 v3 OpenAPI（REST 风格），
-// 并按支付宝 v3 规范完成请求加签（Authorization: ALIPAY-SHA256withRSA）与响应验签。
-//
-// 参考：https://opendocs.alipay.com/open-v3/ba2f3ec8_alipay.system.oauth.token
 package alipay
 
 import (
@@ -26,32 +20,20 @@ import (
 )
 
 const (
-	// v3 网关地址（路径以 /v3/ 开头）。
 	productionGateway = "https://openapi.alipay.com"
 	sandboxGateway    = "https://openapi-sandbox.dl.alipaydev.com"
-
-	// alipay.system.oauth.token 的 v3 路径（不含域名）。
 	v3OAuthTokenPath = "/v3/alipay/system/oauth/token"
-
-	// v3 鉴权头 scheme。
 	authScheme = "ALIPAY-SHA256withRSA"
 )
 
-// Client 是对支付宝 v3 OpenAPI 的轻量封装。
 type Client struct {
 	appID      string
 	gateway    string
 	privateKey *rsa.PrivateKey
-	publicKey  *rsa.PublicKey // 可选，用于响应验签
+	publicKey  *rsa.PublicKey
 	httpClient *http.Client
 }
 
-// New 创建一个支付宝客户端。
-//
-// appID:           支付宝应用 AppID
-// privateKey:      应用私钥（支持 PEM 文本或裸 base64，PKCS1/PKCS8 均自动识别）
-// alipayPublicKey: 支付宝公钥（用于响应验签，可选；传空则跳过验签）
-// isProduction:    true=生产网关，false=沙箱网关
 func New(appID, privateKey, alipayPublicKey string, isProduction bool) (*Client, error) {
 	if appID == "" {
 		return nil, errors.New("alipay app_id 未配置")
@@ -86,11 +68,6 @@ func New(appID, privateKey, alipayPublicKey string, isProduction bool) (*Client,
 	return c, nil
 }
 
-// ExchangeCode 用前端授权 code 换取支付宝用户标识（OpenID）。
-//
-// 调用 v3 接口 POST /v3/alipay/system/oauth/token，请求体为 JSON：
-//
-//	{"grantType":"authorization_code","code":"xxx"}
 func (c *Client) ExchangeCode(ctx context.Context, code string) (string, error) {
 	bodyBytes, err := json.Marshal(map[string]string{
 		"grant_type": "authorization_code",

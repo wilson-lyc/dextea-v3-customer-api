@@ -16,7 +16,9 @@ func NewRepository(db *sqlx.DB) *Repository {
 	return &Repository{db: db}
 }
 
-const customerColumns = `id, name, weixin_open_id, alipay_open_id, email, phone, password, status, platform, created_at, updated_at`
+// customerColumns：对所有允许为 NULL 的 string 列使用 COALESCE 转成空字符串，
+// 避免用支付宝 openid 注册（weixin_open_id 等列为 NULL）时扫描报错。
+const customerColumns = `id, name, COALESCE(weixin_open_id, '') AS weixin_open_id, COALESCE(alipay_open_id, '') AS alipay_open_id, COALESCE(email, '') AS email, COALESCE(phone, '') AS phone, COALESCE(password, '') AS password, status, platform, created_at, updated_at`
 
 func (r *Repository) FindByAlipayOpenID(ctx context.Context, openID string) (*Customer, error) {
 	if r.db == nil {
