@@ -93,11 +93,28 @@ func (c *Config) Validate() error {
 		b.WriteString("\n    - REDIS_ADDR")
 	}
 
+	if c.AlipayAppID == "" || c.AlipayPrivateKey == "" {
+		hasErr = true
+		b.WriteString("\n  [Alipay] configuration is incomplete, please add the following in .env or environment variables:")
+		if c.AlipayAppID == "" {
+			b.WriteString("\n    - ALIPAY_APP_ID")
+		}
+		if c.AlipayPrivateKey == "" {
+			b.WriteString("\n    - ALIPAY_PRIVATE_KEY")
+		}
+	}
+
+	if c.JWTSecret == "" {
+		hasErr = true
+		b.WriteString("\n  [JWT] secret is not configured, please add the following in .env or environment variables:")
+		b.WriteString("\n    - JWT_SECRET")
+	}
+
 	if !hasErr {
 		return nil
 	}
 
-	return fmt.Errorf("startup self-check failed: missing required database/cache configuration, startup is forbidden.%s", b.String())
+	return fmt.Errorf("startup self-check failed: missing required configuration, startup is forbidden.%s", b.String())
 }
 
 func (c *Config) DatabaseDSN() string {
