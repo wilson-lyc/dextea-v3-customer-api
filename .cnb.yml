@@ -3,7 +3,7 @@ $:
     - runner:
         cpus: 2
       docker:
-        image: cnbcool/default-dev-env:latest
+        image: docker.cnb.cool/scaffold/examples/go:latest
       services:
         - vscode
         - docker
