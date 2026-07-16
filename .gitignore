@@ -1,0 +1,22 @@
+# Binaries
+*.exe
+*.out
+*.test
+
+# Build output
+/bin/
+
+# Dependency directories
+/vendor/
+
+# Go workspace file
+go.work
+go.work.sum
+
+# Env files
+.env
+.env.*
+
+# IDE
+.idea/
+.vscode/

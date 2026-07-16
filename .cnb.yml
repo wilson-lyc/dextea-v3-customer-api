@@ -1,0 +1,9 @@
+$:
+  vscode:
+    - runner:
+        cpus: 2
+      docker:
+        image: cnbcool/default-dev-env:latest
+      services:
+        - vscode
+        - docker
