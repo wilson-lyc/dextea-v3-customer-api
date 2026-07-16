@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/dextea-v3/dextea-customer/api/internal/config"
+	"github.com/dextea-v3/dextea-customer/api/internal/customer"
 	"github.com/dextea-v3/dextea-customer/api/internal/demo"
 	"github.com/dextea-v3/dextea-customer/api/internal/mysql"
 	"github.com/dextea-v3/dextea-customer/api/internal/redis"
@@ -44,7 +45,12 @@ func main() {
 		log.Fatalf("migrate error: %v", err)
 	}
 
-	r := router.Setup(cfg, demoHandler)
+	// 顾客模块：repository -> service -> handler。
+	customerRepo := customer.NewRepository(database)
+	customerSvc := customer.NewService(customerRepo, rdb, cfg)
+	customerHandler := customer.NewHandler(customerSvc)
+
+	r := router.Setup(cfg, demoHandler, customerHandler)
 
 	addr := ":" + cfg.Port
 	log.Printf("%s listening on %s (env=%s)", cfg.ServiceName, addr, cfg.Environment)

@@ -1,8 +1,6 @@
 package demo
 
 import (
-	"net/http"
-
 	"github.com/gin-gonic/gin"
 
 	"github.com/dextea-v3/dextea-customer/api/internal/bizerror"
@@ -48,8 +46,7 @@ func (h *Handler) CreateProduct(c *gin.Context) {
 	var req ProductRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		// 以 BizError 抛出业务异常，并用校验错误详情覆盖默认消息。
-		response.FailBiz(c, http.StatusBadRequest,
-			bizerror.New(bizerror.CodeBadRequest, err.Error()))
+		response.FailBiz(c, bizerror.New(bizerror.CodeBadRequest, err.Error()))
 		return
 	}
 

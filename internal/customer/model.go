@@ -13,3 +13,19 @@ type Customer struct {
 	CreatedAt    time.Time `db:"created_at"     json:"created_at"`
 	UpdatedAt    time.Time `db:"updated_at"     json:"updated_at"`
 }
+
+type Platform string
+
+const (
+	PlatformWeixin Platform = "weixin"
+	PlatformAlipay Platform = "alipay"
+)
+
+func (p Platform) Valid() bool {
+	switch p {
+	case PlatformWeixin, PlatformAlipay:
+		return true
+	default:
+		return false
+	}
+}
