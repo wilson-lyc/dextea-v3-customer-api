@@ -10,6 +10,7 @@ type Customer struct {
 	Email        string    `db:"email"          json:"email"`
 	Phone        string    `db:"phone"          json:"phone"`
 	Password     string    `db:"password"       json:"-"`
+	Status       int       `db:"status"         json:"status"`
 	CreatedAt    time.Time `db:"created_at"     json:"created_at"`
 	UpdatedAt    time.Time `db:"updated_at"     json:"updated_at"`
 }

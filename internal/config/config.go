@@ -29,6 +29,16 @@ type Config struct {
 	RedisAddr     string
 	RedisPassword string
 	RedisDB       int // 逻辑库编号，默认 0
+
+	// 支付宝登录配置：AppID 与应用私钥必填；公钥用于校验支付宝响应签名（可选）。
+	AlipayAppID      string
+	AlipayPrivateKey string
+	AlipayPublicKey  string
+	AlipayGateway    string // 留空使用生产网关 openapi.alipay.com
+
+	// JWT 配置：HS256 签名密钥与令牌有效期。
+	JWTSecret      string
+	JWTExpireHours int // 令牌有效期（小时），默认 168（7 天）
 }
 
 // Load 加载配置：优先读取 .env 文件（若存在），再回退到进程环境变量，最后使用默认值。
@@ -54,6 +64,14 @@ func Load() *Config {
 		RedisAddr:     getEnv("REDIS_ADDR", ""),
 		RedisPassword: getEnv("REDIS_PASSWORD", ""),
 		RedisDB:       getEnvInt("REDIS_DB", 0),
+
+		AlipayAppID:      getEnv("ALIPAY_APP_ID", ""),
+		AlipayPrivateKey: getEnv("ALIPAY_PRIVATE_KEY", ""),
+		AlipayPublicKey:  getEnv("ALIPAY_PUBLIC_KEY", ""),
+		AlipayGateway:    getEnv("ALIPAY_GATEWAY", ""),
+
+		JWTSecret:      getEnv("JWT_SECRET", ""),
+		JWTExpireHours: getEnvInt("JWT_EXPIRE_HOURS", 168),
 	}
 }
 
@@ -88,6 +106,11 @@ func (c *Config) DatabaseDSN() string {
 	}
 
 	return mc.FormatDSN()
+}
+
+// JWTExpireSeconds 返回令牌有效期（秒）。
+func (c *Config) JWTExpireSeconds() int {
+	return c.JWTExpireHours * 3600
 }
 
 func getEnv(key, fallback string) string {
