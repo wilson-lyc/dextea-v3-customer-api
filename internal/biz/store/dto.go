@@ -11,6 +11,7 @@ type NearbyRequest struct {
 // NearbyStoreItem 附近门店条目
 type NearbyStoreItem struct {
 	Name     string  `json:"name"`
+	Address  string  `json:"address"`  // 完整地址，如 广东省广州市番禺区xxxxxx
 	Distance float64 `json:"distance"`
-	Unit     string  `json:"unit"` // "m" 或 "km"
+	Unit     string  `json:"unit"`     // "m" 或 "km"
 }
