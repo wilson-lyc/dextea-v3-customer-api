@@ -28,16 +28,16 @@ func NewService(repo *Repository, rdb *redis.Client, cfg *config.Config) *Servic
 	return svc
 }
 
-func (s *Service) Login(ctx context.Context, code string, platform Platform) (*LoginResponse, error) {
+func (s *Service) Login(ctx context.Context, req LoginRequest) (*LoginResponse, error) {
 	if s.repo.db == nil {
 		return nil, ErrDBDisabled
 	}
 
 	var openID string
 	var err error
-	switch platform {
+	switch req.Platform {
 	case PlatformAlipay:
-		openID, err = s.exchangeAlipayOpenID(ctx, code)
+		openID, err = s.exchangeAlipayOpenID(ctx, req.Code)
 	case PlatformWeixin:
 		return nil, bizerror.New(CodePlatformNotSupported)
 	default:
@@ -64,7 +64,7 @@ func (s *Service) Login(ctx context.Context, code string, platform Platform) (*L
 
 	token, err := jwt.Generate(s.cfg.JWTSecret, jwt.Claims{
 		UID:      cust.ID,
-		Platform: string(platform),
+		Platform: string(req.Platform),
 	}, s.cfg.JWTExpireSeconds())
 	if err != nil {
 		return nil, bizerror.New(bizerror.CodeInternal, "生成登录令牌失败")

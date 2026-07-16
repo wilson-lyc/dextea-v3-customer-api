@@ -31,7 +31,7 @@ func (h *Handler) Login(c *gin.Context) {
 		return
 	}
 
-	result, err := h.svc.Login(c.Request.Context(), req.Code, req.Platform)
+	result, err := h.svc.Login(c.Request.Context(), req)
 	if err != nil {
 		response.HandleError(c, err)
 		return
