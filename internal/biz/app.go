@@ -7,6 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/dextea-v3/dextea-customer/api/internal/alipay"
+	"github.com/dextea-v3/dextea-customer/api/internal/biz/area"
 	"github.com/dextea-v3/dextea-customer/api/internal/biz/customer"
 	"github.com/dextea-v3/dextea-customer/api/internal/biz/store"
 	"github.com/dextea-v3/dextea-customer/api/internal/config"
@@ -45,6 +46,7 @@ func New(cfg *config.Config) (*gin.Engine, func(), error) {
 
 	// 业务模块注册
 	handlers := []server.Registerable{
+		area.NewModule(cfg.AmapAPIKey),
 		customer.NewModule(database, rdb, cfg, alipayClient),
 		store.NewModule(database, rdb),
 	}

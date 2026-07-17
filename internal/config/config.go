@@ -34,6 +34,8 @@ type Config struct {
 	AlipayPublicKey  string
 	AlipayGateway    string
 
+	AmapAPIKey string
+
 	JWTSecret      string
 	JWTExpireHours int
 }
@@ -64,6 +66,8 @@ func Load() *Config {
 		AlipayPublicKey:  getEnv("ALIPAY_PUBLIC_KEY", ""),
 		AlipayGateway:    getEnv("ALIPAY_GATEWAY", ""),
 
+		AmapAPIKey: getEnv("AMAP_API_KEY", ""),
+
 		JWTSecret:      getEnv("JWT_SECRET", ""),
 		JWTExpireHours: getEnvInt("JWT_EXPIRE_HOURS", 168),
 	}
@@ -91,6 +95,12 @@ func (c *Config) Validate() error {
 		hasErr = true
 		b.WriteString("\n  [Redis] cache is not configured, please add the following in .env or environment variables:")
 		b.WriteString("\n    - REDIS_ADDR")
+	}
+
+	if c.AmapAPIKey == "" {
+		hasErr = true
+		b.WriteString("\n  [Amap] API Key is not configured, please add the following in .env or environment variables:")
+		b.WriteString("\n    - AMAP_API_KEY")
 	}
 
 	if c.AlipayAppID == "" || c.AlipayPrivateKey == "" {
