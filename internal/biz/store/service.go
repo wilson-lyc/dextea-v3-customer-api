@@ -96,7 +96,7 @@ func (s *Service) Nearby(ctx context.Context, req NearbyRequest) ([]NearbyStoreI
 }
 
 // Search 按条件搜索门店。
-// region_code 完全匹配，keyword 模糊匹配（名称或地址）；
+// region_code 前缀匹配（去除末尾 0 后），keyword 模糊匹配（名称或地址）；
 // 依据传入的经纬度计算各门店距离，结果按由近到远排序。返回结构与 Nearby 一致。
 func (s *Service) Search(ctx context.Context, req SearchRequest) ([]NearbyStoreItem, error) {
 	if s.repo.db == nil {

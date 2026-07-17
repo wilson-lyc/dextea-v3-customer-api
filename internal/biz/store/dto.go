@@ -17,7 +17,7 @@ type NearbyStoreItem struct {
 }
 
 // SearchRequest 搜索门店请求
-// region_code 完全匹配；keyword 模糊匹配（匹配门店名称或地址）。
+// region_code 前缀匹配（去除末尾 0）；keyword 模糊匹配（匹配门店名称或地址）。
 // longitude/latitude 用于计算返回结果中的距离。
 type SearchRequest struct {
 	RegionCode string  `form:"region_code"`

@@ -52,7 +52,9 @@ func (r *Repository) FindByIDs(ctx context.Context, ids []int64) ([]Store, error
 }
 
 // Search 按条件搜索门店。
-// regionCode 为完全匹配（为空时忽略该条件）；keyword 为模糊匹配，匹配门店名称或地址。
+// regionCode 为前缀匹配：传入 6 位的 region_code 时，会去除末尾所有 0 后用前缀匹配
+// （如 440200 -> 4402 前缀，440000 -> 44 前缀），为空时忽略该条件；
+// keyword 为模糊匹配，匹配门店名称或地址。
 func (r *Repository) Search(ctx context.Context, regionCode, keyword string) ([]Store, error) {
 	if r.db == nil {
 		return nil, ErrDBDisabled
@@ -62,8 +64,10 @@ func (r *Repository) Search(ctx context.Context, regionCode, keyword string) ([]
 	args := make([]any, 0, 2)
 
 	if regionCode != "" {
-		query += ` AND region_code = ?`
-		args = append(args, regionCode)
+		// 去除末尾所有 0 后做前缀搜索，避免 region_code 在库中以不同精度存储导致漏匹配
+		prefix := strings.TrimRight(regionCode, "0")
+		query += ` AND region_code LIKE ?`
+		args = append(args, prefix+"%")
 	}
 	if keyword != "" {
 		// 对 % _ \ 转义，避免用户输入被当作 LIKE 通配符
