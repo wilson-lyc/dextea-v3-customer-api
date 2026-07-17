@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"sort"
 	"strings"
 
@@ -92,6 +93,53 @@ func (s *Service) Nearby(ctx context.Context, req NearbyRequest) ([]NearbyStoreI
 	})
 
 	return items, nil
+}
+
+// Search 按条件搜索门店。
+// region_code 完全匹配，keyword 模糊匹配（名称或地址）；
+// 依据传入的经纬度计算各门店距离，结果按由近到远排序。返回结构与 Nearby 一致。
+func (s *Service) Search(ctx context.Context, req SearchRequest) ([]NearbyStoreItem, error) {
+	if s.repo.db == nil {
+		return nil, bizerror.New(CodeDBDisabled)
+	}
+
+	stores, err := s.repo.Search(ctx, req.RegionCode, req.Keyword)
+	if err != nil {
+		return nil, err
+	}
+	if len(stores) == 0 {
+		return []NearbyStoreItem{}, nil
+	}
+
+	items := make([]NearbyStoreItem, 0, len(stores))
+	for _, st := range stores {
+		distKm := haversine(req.Longitude, req.Latitude, st.Longitude, st.Latitude)
+		distance, unit := formatDistance(distKm)
+		items = append(items, NearbyStoreItem{
+			Name:     st.Name,
+			Address:  buildAddress(st.RegionName, st.Address),
+			Distance: distance,
+			Unit:     unit,
+		})
+	}
+
+	sort.Slice(items, func(i, j int) bool {
+		return items[i].Distance < items[j].Distance
+	})
+
+	return items, nil
+}
+
+// haversine 计算两点间的大圆距离（单位：km）。
+func haversine(lng1, lat1, lng2, lat2 float64) float64 {
+	const earthRadiusKm = 6371.0
+	rad := math.Pi / 180
+	dLat := (lat2 - lat1) * rad
+	dLng := (lng2 - lng1) * rad
+	a := math.Sin(dLat/2)*math.Sin(dLat/2) +
+		math.Cos(lat1*rad)*math.Cos(lat2*rad)*math.Sin(dLng/2)*math.Sin(dLng/2)
+	c := 2 * math.Atan2(math.Sqrt(a), math.Sqrt(1-a))
+	return earthRadiusKm * c
 }
 
 // parseStoreID 将 Redis GEO member（门店 ID 字符串）解析为 int64

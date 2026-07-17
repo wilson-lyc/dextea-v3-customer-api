@@ -20,6 +20,7 @@ func NewHandler(svc *Service) *Handler {
 func (h *Handler) Register(r *gin.Engine) {
 	store := r.Group("/api/v1/stores")
 	store.GET("/nearby", h.Nearby)
+	store.GET("/search", h.Search)
 }
 
 func (h *Handler) Nearby(c *gin.Context) {
@@ -31,6 +32,22 @@ func (h *Handler) Nearby(c *gin.Context) {
 	}
 
 	result, err := h.svc.Nearby(c.Request.Context(), req)
+	if err != nil {
+		response.HandleError(c, err)
+		return
+	}
+	response.OK(c, result)
+}
+
+func (h *Handler) Search(c *gin.Context) {
+	var req SearchRequest
+	if err := c.ShouldBindQuery(&req); err != nil {
+		log.Printf("[WARN] store search invalid request params: %+v", err)
+		response.FailBiz(c, bizerror.New(bizerror.CodeValidationFail))
+		return
+	}
+
+	result, err := h.svc.Search(c.Request.Context(), req)
 	if err != nil {
 		response.HandleError(c, err)
 		return
