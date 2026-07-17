@@ -9,7 +9,7 @@ type Store struct {
 	ID            int64           `db:"id"             json:"id"`
 	Name          string          `db:"name"           json:"name"`
 	RegionCode    string          `db:"region_code"    json:"region_code"`
-	// RegionName 地区名称层级，格式如 ["广东省","广州市","番禺区"]
+	// 格式如 ["广东省","广州市","番禺区"]
 	RegionName    json.RawMessage `db:"region_name"    json:"region_name"`
 	Address       string          `db:"address"        json:"address"`
 	Status        int             `db:"status"         json:"status"`
@@ -22,4 +22,10 @@ type Store struct {
 	Email         string          `db:"email"          json:"email"`
 	CreatedAt     time.Time       `db:"created_at"     json:"created_at"`
 	UpdatedAt     time.Time       `db:"updated_at"     json:"updated_at"`
+}
+
+type StoreMenu struct {
+	StoreID   int64     `db:"store_id"   json:"store_id"`
+	MenuID    int64     `db:"menu_id"    json:"menu_id"`
+	CreatedAt time.Time `db:"created_at" json:"created_at"`
 }
