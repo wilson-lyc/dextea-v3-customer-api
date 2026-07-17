@@ -70,7 +70,8 @@ func (r *Repository) FindGroupsByMenu(ctx context.Context, menuID int64) ([]Menu
 }
 
 // groupProductRow 分组商品联表查询的中间结构。
-// StoreStatus 为 nullable：门店未配置该商品状态时为 nil，调用方回退到 ProductStatus。
+// StoreStatus 为 nullable：门店商品状态表为懒加载，未配置该商品状态时无记录，此时为 nil，
+// 调用方需默认补 0（门店售罄）。ProductStatus 仅用于全局在售过滤，不作为门店状态回退值。
 type groupProductRow struct {
 	GroupID       int64   `db:"group_id"`
 	ProductID     int64   `db:"product_id"`

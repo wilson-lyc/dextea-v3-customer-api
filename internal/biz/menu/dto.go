@@ -29,6 +29,6 @@ type ProductInfo struct {
 	Brief  string  `json:"brief"`
 	Price  float64 `json:"price"`
 	Sort   int     `json:"sort"`   // 商品在分组内的排序
-	Status int     `json:"status"` // 门店商品状态（取自 product_store_status，缺省回退全局状态）
+	Status int     `json:"status"` // 门店商品状态（取自 product_store_status，懒加载无记录时默认 0 门店售罄）
 	Image  string  `json:"image"`  // 商品主图 URL：type=1 图片中 sort 最小的一张，无则为空串
 }

@@ -17,8 +17,9 @@ func NewService(repo *Repository) *Service {
 // GetStoreMenu 获取门店菜单。
 // 链路：① 根据门店 ID 取其绑定的第一个菜单作为当前菜单；
 // ② 查询该菜单下的分组；③ 查询各分组绑定的商品。
-// 仅返回商品全局状态为 1（在售）的商品；返回的商品状态跟随门店商品状态
-// （product_store_status.status），门店未单独配置时回退到商品全局状态。
+// 仅返回商品全局状态为 1（在售）的商品；返回的商品状态取自门店商品状态表
+// （product_store_status.status）。该表为懒加载：门店未配置该商品状态时表中无记录，
+// 此时默认状态为 0，代表门店售罄。
 func (s *Service) GetStoreMenu(ctx context.Context, storeID int64) (*StoreMenuResponse, error) {
 	if s.repo.db == nil {
 		return nil, bizerror.New(bizerror.CodeDBDisabled)
@@ -87,7 +88,8 @@ func (s *Service) GetStoreMenu(ctx context.Context, storeID int64) (*StoreMenuRe
 	// 按 group_id 聚合商品，并按查询返回的顺序（group_id, product_sort）保持分组内排序
 	productsByGroup := make(map[int64][]ProductInfo, len(groups))
 	for _, row := range rows {
-		status := row.ProductStatus
+		// 门店商品状态表为懒加载：无记录即视为门店售罄，状态默认补 0。
+		status := 0
 		if row.StoreStatus != nil {
 			status = *row.StoreStatus
 		}
