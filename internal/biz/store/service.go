@@ -80,6 +80,7 @@ func (s *Service) Nearby(ctx context.Context, req NearbyRequest) ([]NearbyStoreI
 		distKm := idDistMap[st.ID]
 		distance, unit := formatDistance(distKm)
 		items = append(items, NearbyStoreItem{
+			ID:       st.ID,
 			Name:     st.Name,
 			Address:  buildAddress(st.Province, st.City, st.District, st.Address),
 			Distance: distance,
@@ -115,6 +116,7 @@ func (s *Service) Search(ctx context.Context, req SearchRequest) ([]NearbyStoreI
 		distKm := haversine(req.Longitude, req.Latitude, st.Longitude, st.Latitude)
 		distance, unit := formatDistance(distKm)
 		items = append(items, NearbyStoreItem{
+			ID:       st.ID,
 			Name:     st.Name,
 			Address:  buildAddress(st.Province, st.City, st.District, st.Address),
 			Distance: distance,
