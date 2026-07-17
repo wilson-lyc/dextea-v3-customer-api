@@ -51,6 +51,23 @@ func (r *Repository) FindByIDs(ctx context.Context, ids []int64) ([]Store, error
 	return stores, nil
 }
 
+// FindByID 根据 ID 查询单个门店，未找到时返回 nil。
+func (r *Repository) FindByID(ctx context.Context, id int64) (*Store, error) {
+	if r.db == nil {
+		return nil, ErrDBDisabled
+	}
+
+	var store Store
+	query := `SELECT ` + storeColumns + ` FROM stores WHERE id = ?`
+	if err := r.db.GetContext(ctx, &store, query, id); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &store, nil
+}
+
 // Search 按条件搜索门店。
 // province/city/district 为文本精确匹配：分别匹配门店的省份、城市、区县字段，
 // 传入任一字段时仅筛选该字段（为空则忽略该条件）；

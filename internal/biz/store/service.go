@@ -27,7 +27,7 @@ func NewService(repo *Repository, rdb *redis.Client) *Service {
 }
 
 // Nearby 获取附近门店
-func (s *Service) Nearby(ctx context.Context, req NearbyRequest) ([]NearbyStoreItem, error) {
+func (s *Service) Nearby(ctx context.Context, req NearbyRequest) ([]StoreDetailItem, error) {
 	if s.rdb == nil {
 		return nil, bizerror.New(CodeRedisDisabled)
 	}
@@ -49,7 +49,7 @@ func (s *Service) Nearby(ctx context.Context, req NearbyRequest) ([]NearbyStoreI
 	}
 
 	if len(geoResults) == 0 {
-		return []NearbyStoreItem{}, nil
+		return []StoreDetailItem{}, nil
 	}
 
 	// 2. 提取门店 ID 列表并保持距离映射
@@ -65,7 +65,7 @@ func (s *Service) Nearby(ctx context.Context, req NearbyRequest) ([]NearbyStoreI
 	}
 
 	if len(ids) == 0 {
-		return []NearbyStoreItem{}, nil
+		return []StoreDetailItem{}, nil
 	}
 
 	// 3. 批量查询门店数据
@@ -75,21 +75,31 @@ func (s *Service) Nearby(ctx context.Context, req NearbyRequest) ([]NearbyStoreI
 	}
 
 	// 4. 组装结果：按距离从近到远排序
-	items := make([]NearbyStoreItem, 0, len(stores))
+	items := make([]StoreDetailItem, 0, len(stores))
 	for _, st := range stores {
 		distKm := idDistMap[st.ID]
 		distance, unit := formatDistance(distKm)
-		items = append(items, NearbyStoreItem{
-			ID:       st.ID,
-			Name:     st.Name,
-			Address:  buildAddress(st.Province, st.City, st.District, st.Address),
-			Distance: distance,
-			Unit:     unit,
+		dist := distance
+		u := unit
+		items = append(items, StoreDetailItem{
+			ID:            st.ID,
+			Name:          st.Name,
+			Status:        st.Status,
+			Province:      st.Province,
+			City:          st.City,
+			District:      st.District,
+			Address:       buildAddress(st.Province, st.City, st.District, st.Address),
+			BusinessHours: st.BusinessHours,
+			Phone:         st.Phone,
+			Longitude:     st.Longitude,
+			Latitude:      st.Latitude,
+			Distance:      &dist,
+			Unit:          &u,
 		})
 	}
 
 	sort.Slice(items, func(i, j int) bool {
-		return items[i].Distance < items[j].Distance
+		return *items[i].Distance < *items[j].Distance
 	})
 
 	return items, nil
@@ -98,7 +108,7 @@ func (s *Service) Nearby(ctx context.Context, req NearbyRequest) ([]NearbyStoreI
 // Search 按条件搜索门店。
 // province/city/district 按省市区文本筛选，keyword 模糊匹配（名称或地址）；
 // 依据传入的经纬度计算各门店距离，结果按由近到远排序。返回结构与 Nearby 一致。
-func (s *Service) Search(ctx context.Context, req SearchRequest) ([]NearbyStoreItem, error) {
+func (s *Service) Search(ctx context.Context, req SearchRequest) ([]StoreDetailItem, error) {
 	if s.repo.db == nil {
 		return nil, bizerror.New(CodeDBDisabled)
 	}
@@ -108,27 +118,75 @@ func (s *Service) Search(ctx context.Context, req SearchRequest) ([]NearbyStoreI
 		return nil, err
 	}
 	if len(stores) == 0 {
-		return []NearbyStoreItem{}, nil
+		return []StoreDetailItem{}, nil
 	}
 
-	items := make([]NearbyStoreItem, 0, len(stores))
+	items := make([]StoreDetailItem, 0, len(stores))
 	for _, st := range stores {
 		distKm := haversine(req.Longitude, req.Latitude, st.Longitude, st.Latitude)
 		distance, unit := formatDistance(distKm)
-		items = append(items, NearbyStoreItem{
-			ID:       st.ID,
-			Name:     st.Name,
-			Address:  buildAddress(st.Province, st.City, st.District, st.Address),
-			Distance: distance,
-			Unit:     unit,
+		dist := distance
+		u := unit
+		items = append(items, StoreDetailItem{
+			ID:            st.ID,
+			Name:          st.Name,
+			Status:        st.Status,
+			Province:      st.Province,
+			City:          st.City,
+			District:      st.District,
+			Address:       buildAddress(st.Province, st.City, st.District, st.Address),
+			BusinessHours: st.BusinessHours,
+			Phone:         st.Phone,
+			Longitude:     st.Longitude,
+			Latitude:      st.Latitude,
+			Distance:      &dist,
+			Unit:          &u,
 		})
 	}
 
 	sort.Slice(items, func(i, j int) bool {
-		return items[i].Distance < items[j].Distance
+		return *items[i].Distance < *items[j].Distance
 	})
 
 	return items, nil
+}
+
+// GetDetail 根据门店 ID 返回门店数据及与传入经纬度的距离。
+// 距离展示逻辑同 Nearby/Search：< 1km 以 m 展示，否则以 km 展示。
+// 门店不存在时返回 nil。
+func (s *Service) GetDetail(ctx context.Context, req GetDetailRequest) (*StoreDetailItem, error) {
+	if s.repo.db == nil {
+		return nil, bizerror.New(CodeDBDisabled)
+	}
+
+	store, err := s.repo.FindByID(ctx, req.ID)
+	if err != nil {
+		return nil, err
+	}
+	if store == nil {
+		return nil, nil
+	}
+
+	distKm := haversine(req.Longitude, req.Latitude, store.Longitude, store.Latitude)
+	distance, unit := formatDistance(distKm)
+	dist := distance
+	u := unit
+
+	return &StoreDetailItem{
+		ID:            store.ID,
+		Name:          store.Name,
+		Status:        store.Status,
+		Province:      store.Province,
+		City:          store.City,
+		District:      store.District,
+		Address:       buildAddress(store.Province, store.City, store.District, store.Address),
+		BusinessHours: store.BusinessHours,
+		Phone:         store.Phone,
+		Longitude:     store.Longitude,
+		Latitude:      store.Latitude,
+		Distance:      &dist,
+		Unit:          &u,
+	}, nil
 }
 
 // haversine 计算两点间的大圆距离（单位：km）。
