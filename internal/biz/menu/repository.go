@@ -126,8 +126,9 @@ func (r *Repository) FindGroupProducts(ctx context.Context, groupIDs []int64, st
 	return rows, nil
 }
 
-// FindProductImages 根据商品 ID 列表批量查询商品图片，并通过 LEFT JOIN gallery
-// 补上图片可访问地址（url）。结果按 sort 升序返回。
+// FindProductImages 根据商品 ID 列表批量查询商品主图，仅取 type=1 的图片，
+// 并通过 LEFT JOIN gallery 补上图片可访问地址（url）。结果按 product_id、sort 升序，
+// 便于上层对每个商品取命中排序最小的第一张作为主图。
 func (r *Repository) FindProductImages(ctx context.Context, productIDs []int64) ([]productImageRow, error) {
 	if r.db == nil {
 		return nil, ErrDBDisabled
@@ -143,7 +144,7 @@ func (r *Repository) FindProductImages(ctx context.Context, productIDs []int64) 
 		       g.url AS url
 		FROM product_images pi
 		LEFT JOIN gallery g ON g.id = pi.image_id
-		WHERE pi.product_id IN (?) ORDER BY pi.sort`,
+		WHERE pi.product_id IN (?) AND pi.type = 1 ORDER BY pi.product_id, pi.sort`,
 		productIDs,
 	)
 	if err != nil {

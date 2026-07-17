@@ -24,18 +24,11 @@ type GroupInfo struct {
 
 // ProductInfo 返回给前端的商品数据：名称、简介、图片、价格，状态取自门店商品状态。
 type ProductInfo struct {
-	ID     int64              `json:"id"`
-	Name   string             `json:"name"`
-	Brief  string             `json:"brief"`
-	Price  float64            `json:"price"`
-	Status int                `json:"status"` // 门店商品状态（取自 product_store_status，缺省回退全局状态）
-	Images []ProductImageInfo `json:"images"`
-}
-
-// ProductImageInfo 商品图片（image_id 指向图库，url 为可访问地址，type 区分图片类型，sort 为排序）
-type ProductImageInfo struct {
-	ImageID int64  `json:"image_id"`
-	URL     string `json:"url"`
-	Type    int    `json:"type"`
-	Sort    int    `json:"sort"`
+	ID     int64   `json:"id"`
+	Name   string  `json:"name"`
+	Brief  string  `json:"brief"`
+	Price  float64 `json:"price"`
+	Sort   int     `json:"sort"`   // 商品在分组内的排序
+	Status int     `json:"status"` // 门店商品状态（取自 product_store_status，缺省回退全局状态）
+	Image  string  `json:"image"`  // 商品主图 URL：type=1 图片中 sort 最小的一张，无则为空串
 }

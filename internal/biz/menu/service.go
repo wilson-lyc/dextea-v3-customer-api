@@ -73,14 +73,15 @@ func (s *Service) GetStoreMenu(ctx context.Context, storeID int64) (*StoreMenuRe
 	if err != nil {
 		return nil, err
 	}
-	imgMap := make(map[int64][]ProductImageInfo, len(imgs))
+	// 每个商品只取 type=1 中 sort 最小的第一张作为主图 URL。
+	imgMap := make(map[int64]string, len(imgs))
+	seen := make(map[int64]bool, len(imgs))
 	for _, im := range imgs {
-		imgMap[im.ProductID] = append(imgMap[im.ProductID], ProductImageInfo{
-			ImageID: im.ImageID,
-			URL:     im.URL,
-			Type:    im.Type,
-			Sort:    im.Sort,
-		})
+		if seen[im.ProductID] {
+			continue
+		}
+		seen[im.ProductID] = true
+		imgMap[im.ProductID] = im.URL
 	}
 
 	// 按 group_id 聚合商品，并按查询返回的顺序（group_id, product_sort）保持分组内排序
@@ -95,8 +96,9 @@ func (s *Service) GetStoreMenu(ctx context.Context, storeID int64) (*StoreMenuRe
 			Name:   row.Name,
 			Brief:  row.Brief,
 			Price:  row.Price,
+			Sort:   row.ProductSort,
 			Status: status,
-			Images: imgMap[row.ProductID],
+			Image:  imgMap[row.ProductID],
 		})
 	}
 
