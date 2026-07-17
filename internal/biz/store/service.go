@@ -2,7 +2,6 @@ package store
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"math"
 	"sort"
@@ -82,7 +81,7 @@ func (s *Service) Nearby(ctx context.Context, req NearbyRequest) ([]NearbyStoreI
 		distance, unit := formatDistance(distKm)
 		items = append(items, NearbyStoreItem{
 			Name:     st.Name,
-			Address:  buildAddress(st.RegionName, st.Address),
+			Address:  buildAddress(st.Province, st.City, st.District, st.Address),
 			Distance: distance,
 			Unit:     unit,
 		})
@@ -96,14 +95,14 @@ func (s *Service) Nearby(ctx context.Context, req NearbyRequest) ([]NearbyStoreI
 }
 
 // Search 按条件搜索门店。
-// region_code 前缀匹配（去除末尾 0 后），keyword 模糊匹配（名称或地址）；
+// province/city/district 按省市区文本筛选，keyword 模糊匹配（名称或地址）；
 // 依据传入的经纬度计算各门店距离，结果按由近到远排序。返回结构与 Nearby 一致。
 func (s *Service) Search(ctx context.Context, req SearchRequest) ([]NearbyStoreItem, error) {
 	if s.repo.db == nil {
 		return nil, bizerror.New(CodeDBDisabled)
 	}
 
-	stores, err := s.repo.Search(ctx, req.RegionCode, req.Keyword)
+	stores, err := s.repo.Search(ctx, req.Province, req.City, req.District, req.Keyword)
 	if err != nil {
 		return nil, err
 	}
@@ -117,7 +116,7 @@ func (s *Service) Search(ctx context.Context, req SearchRequest) ([]NearbyStoreI
 		distance, unit := formatDistance(distKm)
 		items = append(items, NearbyStoreItem{
 			Name:     st.Name,
-			Address:  buildAddress(st.RegionName, st.Address),
+			Address:  buildAddress(st.Province, st.City, st.District, st.Address),
 			Distance: distance,
 			Unit:     unit,
 		})
@@ -158,15 +157,14 @@ func formatDistance(km float64) (float64, string) {
 	return km, "km"
 }
 
-// buildAddress 将 region_name（如 ["广东省","广州市","番禺区"]）与详细地址拼接
+// buildAddress 将 省/市/区 文本与详细地址拼接
 // 返回形如 "广东省广州市番禺区xxxxxx" 的完整地址
-func buildAddress(regionName json.RawMessage, address string) string {
-	if len(regionName) == 0 {
-		return address
+func buildAddress(province, city, district, address string) string {
+	parts := make([]string, 0, 3)
+	for _, p := range []string{province, city, district} {
+		if p != "" {
+			parts = append(parts, p)
+		}
 	}
-	var names []string
-	if err := json.Unmarshal(regionName, &names); err != nil {
-		return address
-	}
-	return strings.Join(names, "") + address
+	return strings.Join(parts, "") + address
 }

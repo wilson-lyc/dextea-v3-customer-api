@@ -17,11 +17,14 @@ type NearbyStoreItem struct {
 }
 
 // SearchRequest 搜索门店请求
-// region_code 前缀匹配（去除末尾 0）；keyword 模糊匹配（匹配门店名称或地址）。
+// province/city/district 按省市区文本筛选（分别为空时忽略该条件）；
+// keyword 模糊匹配（匹配门店名称或地址）。
 // longitude/latitude 用于计算返回结果中的距离。
 type SearchRequest struct {
-	RegionCode string  `form:"region_code"`
-	Keyword    string  `form:"keyword" binding:"required"`
-	Longitude  float64 `form:"longitude" binding:"required"`
-	Latitude   float64 `form:"latitude" binding:"required"`
+	Province  string  `form:"province"`
+	City      string  `form:"city"`
+	District  string  `form:"district"`
+	Keyword   string  `form:"keyword" binding:"required"`
+	Longitude float64 `form:"longitude" binding:"required"`
+	Latitude  float64 `form:"latitude" binding:"required"`
 }

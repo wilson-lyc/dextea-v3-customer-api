@@ -1,17 +1,16 @@
 package store
 
 import (
-	"encoding/json"
 	"time"
 )
 
 type Store struct {
-	ID            int64           `db:"id"             json:"id"`
-	Name          string          `db:"name"           json:"name"`
-	RegionCode    string          `db:"region_code"    json:"region_code"`
-	// 格式如 ["广东省","广州市","番禺区"]
-	RegionName    json.RawMessage `db:"region_name"    json:"region_name"`
-	Address       string          `db:"address"        json:"address"`
+	ID            int64     `db:"id"             json:"id"`
+	Name          string    `db:"name"           json:"name"`
+	Province      string    `db:"province"       json:"province"`
+	City          string    `db:"city"           json:"city"`
+	District      string    `db:"district"       json:"district"`
+	Address       string    `db:"address"        json:"address"`
 	Status        int             `db:"status"         json:"status"`
 	BusinessHours string          `db:"business_hours" json:"business_hours"`
 	Phone         string          `db:"phone"          json:"phone"`

@@ -19,7 +19,7 @@ func NewRepository(db *sqlx.DB) *Repository {
 	return &Repository{db: db}
 }
 
-const storeColumns = `id, name, region_code, region_name, address, status, business_hours, phone, longitude, latitude, account, password, email, created_at, updated_at`
+const storeColumns = `id, name, province, city, district, address, status, business_hours, phone, longitude, latitude, account, password, email, created_at, updated_at`
 
 var ErrDBDisabled = bizerror.New(bizerror.CodeDBDisabled)
 
@@ -52,22 +52,28 @@ func (r *Repository) FindByIDs(ctx context.Context, ids []int64) ([]Store, error
 }
 
 // Search 按条件搜索门店。
-// regionCode 为前缀匹配：传入 6 位的 region_code 时，会去除末尾所有 0 后用前缀匹配
-// （如 440200 -> 4402 前缀，440000 -> 44 前缀），为空时忽略该条件；
+// province/city/district 为文本精确匹配：分别匹配门店的省份、城市、区县字段，
+// 传入任一字段时仅筛选该字段（为空则忽略该条件）；
 // keyword 为模糊匹配，匹配门店名称或地址。
-func (r *Repository) Search(ctx context.Context, regionCode, keyword string) ([]Store, error) {
+func (r *Repository) Search(ctx context.Context, province, city, district, keyword string) ([]Store, error) {
 	if r.db == nil {
 		return nil, ErrDBDisabled
 	}
 
 	query := `SELECT ` + storeColumns + ` FROM stores WHERE 1=1`
-	args := make([]any, 0, 2)
+	args := make([]any, 0, 4)
 
-	if regionCode != "" {
-		// 去除末尾所有 0 后做前缀搜索，避免 region_code 在库中以不同精度存储导致漏匹配
-		prefix := strings.TrimRight(regionCode, "0")
-		query += ` AND region_code LIKE ?`
-		args = append(args, prefix+"%")
+	if province != "" {
+		query += ` AND province = ?`
+		args = append(args, province)
+	}
+	if city != "" {
+		query += ` AND city = ?`
+		args = append(args, city)
+	}
+	if district != "" {
+		query += ` AND district = ?`
+		args = append(args, district)
 	}
 	if keyword != "" {
 		// 对 % _ \ 转义，避免用户输入被当作 LIKE 通配符
