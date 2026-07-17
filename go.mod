@@ -7,6 +7,7 @@ require (
 	github.com/go-sql-driver/mysql v1.8.1
 	github.com/jmoiron/sqlx v1.4.0
 	github.com/joho/godotenv v1.5.1
+	github.com/mozillazg/go-pinyin v0.21.0
 	github.com/redis/go-redis/v9 v9.21.0
 )
 

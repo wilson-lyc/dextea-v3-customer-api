@@ -22,6 +22,7 @@ func (h *Handler) Register(r *gin.Engine) {
 	store.GET("/nearby", h.Nearby)
 	store.GET("/search", h.Search)
 	store.GET("/detail", h.GetDetail)
+	store.GET("/cities", h.CityLetters)
 }
 
 func (h *Handler) Nearby(c *gin.Context) {
@@ -49,6 +50,15 @@ func (h *Handler) Search(c *gin.Context) {
 	}
 
 	result, err := h.svc.Search(c.Request.Context(), req)
+	if err != nil {
+		response.HandleError(c, err)
+		return
+	}
+	response.OK(c, result)
+}
+
+func (h *Handler) CityLetters(c *gin.Context) {
+	result, err := h.svc.CityLetters(c.Request.Context())
 	if err != nil {
 		response.HandleError(c, err)
 		return

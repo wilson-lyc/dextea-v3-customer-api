@@ -69,28 +69,19 @@ func (r *Repository) FindByID(ctx context.Context, id int64) (*Store, error) {
 }
 
 // Search 按条件搜索门店。
-// province/city/district 为文本精确匹配：分别匹配门店的省份、城市、区县字段，
-// 传入任一字段时仅筛选该字段（为空则忽略该条件）；
-// keyword 为模糊匹配，匹配门店名称或地址。
-func (r *Repository) Search(ctx context.Context, province, city, district, keyword string) ([]Store, error) {
+// city 为文本精确匹配，匹配门店的城市字段（为空则忽略该条件）；
+// keyword 为模糊匹配，匹配门店名称或地址（为空则忽略该条件）。
+func (r *Repository) Search(ctx context.Context, city, keyword string) ([]Store, error) {
 	if r.db == nil {
 		return nil, ErrDBDisabled
 	}
 
 	query := `SELECT ` + storeColumns + ` FROM stores WHERE 1=1`
-	args := make([]any, 0, 4)
+	args := make([]any, 0, 2)
 
-	if province != "" {
-		query += ` AND province = ?`
-		args = append(args, province)
-	}
 	if city != "" {
 		query += ` AND city = ?`
 		args = append(args, city)
-	}
-	if district != "" {
-		query += ` AND district = ?`
-		args = append(args, district)
 	}
 	if keyword != "" {
 		// 对 % _ \ 转义，避免用户输入被当作 LIKE 通配符
@@ -107,6 +98,23 @@ func (r *Repository) Search(ctx context.Context, province, city, district, keywo
 		return nil, err
 	}
 	return stores, nil
+}
+
+// GetDistinctCities 查询门店表中所有去重后的城市名称，按城市名排序。
+func (r *Repository) GetDistinctCities(ctx context.Context) ([]string, error) {
+	if r.db == nil {
+		return nil, ErrDBDisabled
+	}
+
+	query := `SELECT DISTINCT city FROM stores WHERE city != '' ORDER BY city`
+	var cities []string
+	if err := r.db.SelectContext(ctx, &cities, query); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return cities, nil
 }
 
 // escapeLikeValue 转义 LIKE 通配符，防止用户输入 % _ \ 干扰匹配。

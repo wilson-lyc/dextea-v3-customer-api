@@ -36,14 +36,18 @@ type StoreDetailItem struct {
 }
 
 // SearchRequest 搜索门店请求
-// province/city/district 按省市区文本筛选（分别为空时忽略该条件）；
-// keyword 模糊匹配（匹配门店名称或地址）。
+// city 为文本精确匹配（city 为空时忽略该条件）；
+// keyword 为模糊匹配（匹配门店名称或地址，keyword 为空时忽略该条件）。
 // longitude/latitude 用于计算返回结果中的距离。
 type SearchRequest struct {
-	Province  string  `form:"province"`
 	City      string  `form:"city"`
-	District  string  `form:"district"`
-	Keyword   string  `form:"keyword" binding:"required"`
+	Keyword   string  `form:"keyword"`
 	Longitude float64 `form:"longitude" binding:"required"`
 	Latitude  float64 `form:"latitude" binding:"required"`
+}
+
+// CityLetterGroup 城市按首字母分组响应结构
+type CityLetterGroup struct {
+	Letter string   `json:"letter"`
+	Cities []string `json:"cities"`
 }
