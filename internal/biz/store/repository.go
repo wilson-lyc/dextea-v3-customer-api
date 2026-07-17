@@ -69,7 +69,7 @@ func (r *Repository) FindByID(ctx context.Context, id int64) (*Store, error) {
 }
 
 // Search 按条件搜索门店。
-// city 为文本精确匹配，匹配门店的城市字段（为空则忽略该条件）；
+// city 为模糊匹配，匹配门店的城市字段（为空则忽略该条件）；
 // keyword 为模糊匹配，匹配门店名称或地址（为空则忽略该条件）。
 func (r *Repository) Search(ctx context.Context, city, keyword string) ([]Store, error) {
 	if r.db == nil {
@@ -80,8 +80,9 @@ func (r *Repository) Search(ctx context.Context, city, keyword string) ([]Store,
 	args := make([]any, 0, 2)
 
 	if city != "" {
-		query += ` AND city = ?`
-		args = append(args, city)
+		like := "%" + escapeLikeValue(city) + "%"
+		query += ` AND city LIKE ? ESCAPE '\\'`
+		args = append(args, like)
 	}
 	if keyword != "" {
 		// 对 % _ \ 转义，避免用户输入被当作 LIKE 通配符

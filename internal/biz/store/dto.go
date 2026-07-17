@@ -36,7 +36,7 @@ type StoreDetailItem struct {
 }
 
 // SearchRequest 搜索门店请求
-// city 为文本精确匹配（city 为空时忽略该条件）；
+// city 为模糊匹配（city 为空时忽略该条件）；
 // keyword 为模糊匹配（匹配门店名称或地址，keyword 为空时忽略该条件）。
 // longitude/latitude 用于计算返回结果中的距离。
 type SearchRequest struct {
