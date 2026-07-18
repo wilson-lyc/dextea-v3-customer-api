@@ -20,6 +20,7 @@ func NewHandler(svc *Service) *Handler {
 func (h *Handler) Register(r *gin.Engine) {
 	g := r.Group("/api/v1/products")
 	g.GET("/detail", h.GetDetail)
+	g.GET("/status", h.GetStoreStatus)
 }
 
 func (h *Handler) GetDetail(c *gin.Context) {
@@ -31,6 +32,22 @@ func (h *Handler) GetDetail(c *gin.Context) {
 	}
 
 	result, err := h.svc.GetDetail(c.Request.Context(), req)
+	if err != nil {
+		response.HandleError(c, err)
+		return
+	}
+	response.OK(c, result)
+}
+
+func (h *Handler) GetStoreStatus(c *gin.Context) {
+	var req GetProductStoreStatusRequest
+	if err := c.ShouldBindQuery(&req); err != nil {
+		log.Printf("[WARN] product store-status invalid request params: %+v", err)
+		response.FailBiz(c, bizerror.New(bizerror.CodeValidationFail))
+		return
+	}
+
+	result, err := h.svc.GetStoreStatus(c.Request.Context(), req)
 	if err != nil {
 		response.HandleError(c, err)
 		return

@@ -57,6 +57,56 @@ func (r *Repository) FindProductStoreStatus(ctx context.Context, productID, stor
 	return &status, nil
 }
 
+// FindActiveProducts 返回全局状态为 1（上架）的商品，按 ID 升序。
+func (r *Repository) FindActiveProducts(ctx context.Context) ([]Product, error) {
+	if r.db == nil {
+		return nil, ErrDBDisabled
+	}
+	query := `SELECT id, name FROM products WHERE status = 1 ORDER BY id`
+	var list []Product
+	if err := r.db.SelectContext(ctx, &list, query); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return list, nil
+}
+
+// FindStoreStatuses 批量查询指定门店下一组商品的专属状态。
+// 返回 product_id -> status 的映射；未在 product_store_status 中配置的商品不出现于映射中。
+func (r *Repository) FindStoreStatuses(ctx context.Context, productIDs []int64, storeID int64) (map[int64]int, error) {
+	if r.db == nil {
+		return nil, ErrDBDisabled
+	}
+	if len(productIDs) == 0 {
+		return map[int64]int{}, nil
+	}
+
+	q, args, err := sqlx.In(`
+		SELECT product_id, status FROM product_store_status
+		WHERE product_id IN (?) AND store_id = ?`,
+		productIDs, storeID)
+	if err != nil {
+		return nil, err
+	}
+	q = r.db.Rebind(q)
+
+	var rows []struct {
+		ProductID int64 `db:"product_id"`
+		Status    int   `db:"status"`
+	}
+	if err := r.db.SelectContext(ctx, &rows, q, args...); err != nil {
+		return nil, err
+	}
+
+	m := make(map[int64]int, len(rows))
+	for _, row := range rows {
+		m[row.ProductID] = row.Status
+	}
+	return m, nil
+}
+
 func (r *Repository) FindCustomizations(ctx context.Context, productID int64) ([]Customization, error) {
 	if r.db == nil {
 		return nil, ErrDBDisabled
