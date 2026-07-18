@@ -57,7 +57,6 @@ func (r *Repository) FindProductStoreStatus(ctx context.Context, productID, stor
 	return &status, nil
 }
 
-// FindActiveProducts 返回全局状态为 1（上架）的商品，按 ID 升序。
 func (r *Repository) FindActiveProducts(ctx context.Context) ([]Product, error) {
 	if r.db == nil {
 		return nil, ErrDBDisabled
@@ -73,8 +72,6 @@ func (r *Repository) FindActiveProducts(ctx context.Context) ([]Product, error) 
 	return list, nil
 }
 
-// FindStoreStatuses 批量查询指定门店下一组商品的专属状态。
-// 返回 product_id -> status 的映射；未在 product_store_status 中配置的商品不出现于映射中。
 func (r *Repository) FindStoreStatuses(ctx context.Context, productIDs []int64, storeID int64) (map[int64]int, error) {
 	if r.db == nil {
 		return nil, ErrDBDisabled
@@ -184,7 +181,7 @@ func (r *Repository) FindProductImages(ctx context.Context, productID int64) ([]
 		SELECT pi.image_id AS image_id, g.url AS url, pi.sort AS sort, pi.type AS type
 		FROM product_images pi
 		LEFT JOIN gallery g ON g.id = pi.image_id
-		WHERE pi.product_id = ? AND pi.type = 2 ORDER BY pi.sort`
+		WHERE pi.product_id = ? AND pi.type IN (1, 2) ORDER BY pi.type, pi.sort`
 	var list []productImageRow
 	if err := r.db.SelectContext(ctx, &list, query, productID); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
