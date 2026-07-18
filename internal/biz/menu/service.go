@@ -78,6 +78,7 @@ func (s *Service) GetStoreMenu(ctx context.Context, storeID int64) (*StoreMenuRe
 	}
 
 	productsByGroup := make(map[int64][]ProductInfo, len(groups))
+	for _, row := range rows {
 		status := 0
 		if row.StoreStatus != nil {
 			status = *row.StoreStatus
