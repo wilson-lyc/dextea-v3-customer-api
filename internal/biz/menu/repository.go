@@ -10,17 +10,22 @@ import (
 	"github.com/dextea-v3/dextea-customer/api/internal/common/bizerror"
 )
 
+// Repository 菜单模块数据访问层。
 type Repository struct {
 	db *sqlx.DB
 }
 
+// NewRepository 创建 Repository 实例。
 func NewRepository(db *sqlx.DB) *Repository {
 	return &Repository{db: db}
 }
 
+// ErrDBDisabled 数据库未启用时返回的统一错误。
 var ErrDBDisabled = bizerror.New(bizerror.CodeDBDisabled)
 
-// FindStoreMenuID 根据门店 ID 查询其绑定的第一个菜单 ID（复合主键按 store_id, menu_id 排序取首条）。
+// FindStoreMenuID 根据门店 ID 查询其绑定的第一个菜单 ID。
+//
+// 复合主键按 store_id, menu_id 排序取首条。
 // 未绑定任何菜单时返回 (0, nil)。
 func (r *Repository) FindStoreMenuID(ctx context.Context, storeID int64) (int64, error) {
 	if r.db == nil {
@@ -39,6 +44,8 @@ func (r *Repository) FindStoreMenuID(ctx context.Context, storeID int64) (int64,
 }
 
 // FindMenu 根据菜单 ID 查询菜单基础信息。
+//
+// 未找到菜单时返回零值 Menu{}，不视为错误。
 func (r *Repository) FindMenu(ctx context.Context, menuID int64) (Menu, error) {
 	if r.db == nil {
 		return Menu{}, ErrDBDisabled
@@ -55,7 +62,9 @@ func (r *Repository) FindMenu(ctx context.Context, menuID int64) (Menu, error) {
 	return m, nil
 }
 
-// FindGroupsByMenu 根据菜单 ID 查询其下分组，按 sort 升序返回。
+// FindGroupsByMenu 根据菜单 ID 查询其下分组。
+//
+// 结果按 sort 升序排列，便于上层按序渲染。
 func (r *Repository) FindGroupsByMenu(ctx context.Context, menuID int64) ([]MenuGroup, error) {
 	if r.db == nil {
 		return nil, ErrDBDisabled
@@ -83,18 +92,18 @@ type groupProductRow struct {
 	StoreStatus   *int    `db:"store_status"`
 }
 
-// productImageRow 商品图片联表 gallery 查询的中间结构，含图片可访问地址 url。
+// productImageRow 商品封面图联表 gallery 查询的中间结构，含图片可访问地址 url。
 type productImageRow struct {
 	ProductID int64  `db:"product_id"`
-	ImageID   int64  `db:"image_id"`
-	Type      int    `db:"type"`
-	Sort      int    `db:"sort"`
 	URL       string `db:"url"`
 }
 
 // FindGroupProducts 根据分组 ID 列表查询其下商品。
-// 仅返回商品全局状态（products.status）为 1 的商品；并通过 LEFT JOIN 取门店商品状态（product_store_status）。
-// 结果按 group_id、分组内商品排序（product_sort）升序，便于上层按序分组。
+//
+// 仅返回商品全局状态为在售（products.status = 1）的商品，并通过 LEFT JOIN 获取门店商品状态。
+// 门店商品状态表为懒加载：若未配置则返回 nil，调用方需默认补 0（售罄）。
+//
+// 结果按 group_id、product_sort 升序排列。
 func (r *Repository) FindGroupProducts(ctx context.Context, groupIDs []int64, storeID int64) ([]groupProductRow, error) {
 	if r.db == nil {
 		return nil, ErrDBDisabled
@@ -127,9 +136,9 @@ func (r *Repository) FindGroupProducts(ctx context.Context, groupIDs []int64, st
 	return rows, nil
 }
 
-// FindProductImages 根据商品 ID 列表批量查询商品主图，仅取 type=1 的图片，
-// 并通过 LEFT JOIN gallery 补上图片可访问地址（url）。结果按 product_id、sort 升序，
-// 便于上层对每个商品取命中排序最小的第一张作为主图。
+// FindProductImages 根据商品 ID 列表批量查询商品封面图。
+//
+// 每个商品取 type=1 的第一张图片（按 MIN(id) 确定），通过 LEFT JOIN gallery 补上可访问地址。
 func (r *Repository) FindProductImages(ctx context.Context, productIDs []int64) ([]productImageRow, error) {
 	if r.db == nil {
 		return nil, ErrDBDisabled
@@ -139,13 +148,14 @@ func (r *Repository) FindProductImages(ctx context.Context, productIDs []int64) 
 	}
 	q, args, err := sqlx.In(`
 		SELECT pi.product_id AS product_id,
-		       pi.image_id AS image_id,
-		       pi.type AS type,
-		       pi.sort AS sort,
 		       g.url AS url
 		FROM product_images pi
 		LEFT JOIN gallery g ON g.id = pi.image_id
-		WHERE pi.product_id IN (?) AND pi.type = 1 ORDER BY pi.product_id, pi.sort`,
+		WHERE pi.id IN (
+			SELECT MIN(pi2.id) FROM product_images pi2
+			WHERE pi2.product_id IN (?) AND pi2.type = 1
+			GROUP BY pi2.product_id
+		)`,
 		productIDs,
 	)
 	if err != nil {
