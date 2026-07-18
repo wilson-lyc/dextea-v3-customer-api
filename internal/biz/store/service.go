@@ -218,12 +218,13 @@ func formatDistance(km float64) (float64, string) {
 	return km, "km"
 }
 
-// CityLetters 查询所有城市，按拼音首字母分组排序后返回。
-func (s *Service) CityLetters(ctx context.Context) ([]CityLetterGroup, error) {
+// 获取城市列表
+func (s *Service) GetCities(ctx context.Context) ([]CityLetterGroup, error) {
 	cities, err := s.repo.GetDistinctCities(ctx)
 	if err != nil {
 		return nil, err
 	}
+
 	if len(cities) == 0 {
 		return []CityLetterGroup{}, nil
 	}
@@ -253,7 +254,7 @@ func (s *Service) CityLetters(ctx context.Context) ([]CityLetterGroup, error) {
 	return result, nil
 }
 
-// cityFirstLetter 获取城市名称的拼音首字母（小写），若转换失败则返回 "#"。
+// 获取城市名称的拼音首字母（小写），失败返回 "#"。
 func cityFirstLetter(city string) string {
 	runeCity := []rune(city)
 	if len(runeCity) == 0 {
