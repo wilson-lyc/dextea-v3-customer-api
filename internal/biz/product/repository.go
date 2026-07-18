@@ -72,6 +72,30 @@ func (r *Repository) FindActiveProducts(ctx context.Context) ([]Product, error) 
 	return list, nil
 }
 
+func (r *Repository) FindByIDs(ctx context.Context, productIDs []int64) ([]Product, error) {
+	if r.db == nil {
+		return nil, ErrDBDisabled
+	}
+	if len(productIDs) == 0 {
+		return nil, nil
+	}
+	q, args, err := sqlx.In(`
+		SELECT id, name FROM products WHERE id IN (?) AND status = 1 ORDER BY id`,
+		productIDs)
+	if err != nil {
+		return nil, err
+	}
+	q = r.db.Rebind(q)
+	var list []Product
+	if err := r.db.SelectContext(ctx, &list, q, args...); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return list, nil
+}
+
 func (r *Repository) FindStoreStatuses(ctx context.Context, productIDs []int64, storeID int64) (map[int64]int, error) {
 	if r.db == nil {
 		return nil, ErrDBDisabled

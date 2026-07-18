@@ -135,11 +135,7 @@ func (s *Service) GetStoreStatus(ctx context.Context, req GetProductStoreStatusR
 		return nil, bizerror.New(bizerror.CodeDBDisabled)
 	}
 
-	if req.ProductID > 0 {
-		return s.getSingleStoreStatus(ctx, req.ProductID, req.StoreID)
-	}
-
-	products, err := s.repo.FindActiveProducts(ctx)
+	products, err := s.repo.FindByIDs(ctx, req.ProductIDs)
 	if err != nil {
 		return nil, err
 	}
@@ -147,12 +143,7 @@ func (s *Service) GetStoreStatus(ctx context.Context, req GetProductStoreStatusR
 		return []ProductStoreStatusItem{}, nil
 	}
 
-	ids := make([]int64, 0, len(products))
-	for _, p := range products {
-		ids = append(ids, p.ID)
-	}
-
-	statusMap, err := s.repo.FindStoreStatuses(ctx, ids, req.StoreID)
+	statusMap, err := s.repo.FindStoreStatuses(ctx, req.ProductIDs, req.StoreID)
 	if err != nil {
 		return nil, err
 	}
@@ -170,29 +161,4 @@ func (s *Service) GetStoreStatus(ctx context.Context, req GetProductStoreStatusR
 		})
 	}
 	return items, nil
-}
-
-func (s *Service) getSingleStoreStatus(ctx context.Context, productID, storeID int64) ([]ProductStoreStatusItem, error) {
-	p, err := s.repo.FindByID(ctx, productID)
-	if err != nil {
-		return nil, err
-	}
-	if p == nil || p.Status != 1 {
-		return nil, bizerror.New(bizerror.CodeNotFound, "商品不存在或未上架")
-	}
-
-	status := 0
-	if ss, err := s.repo.FindProductStoreStatus(ctx, productID, storeID); err != nil {
-		return nil, err
-	} else if ss != nil {
-		status = *ss
-	}
-
-	return []ProductStoreStatusItem{
-		{
-			ProductID: p.ID,
-			Name:      p.Name,
-			Status:    status,
-		},
-	}, nil
 }

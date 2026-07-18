@@ -6,8 +6,8 @@ type GetProductDetailRequest struct {
 }
 
 type GetProductStoreStatusRequest struct {
-	StoreID   int64 `form:"storeId" binding:"required"`
-	ProductID int64 `form:"productId"`
+	StoreID    int64   `json:"storeId" binding:"required"`
+	ProductIDs []int64 `json:"productId" binding:"required"`
 }
 
 type ProductStoreStatusItem struct {
