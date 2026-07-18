@@ -29,3 +29,34 @@ type ProductStoreStatus struct {
 	CreatedAt time.Time `db:"created_at" json:"created_at"`
 	UpdatedAt time.Time `db:"updated_at" json:"updated_at"`
 }
+
+type Customization struct {
+	ID        int64     `db:"id"          json:"id"`
+	ProductID int64     `db:"product_id"  json:"product_id"`
+	Name      string    `db:"name"        json:"name"`
+	Sort      int       `db:"sort"        json:"sort"`
+	Status    int       `db:"status"      json:"status"`
+	CreatedAt time.Time `db:"created_at"  json:"created_at"`
+	UpdatedAt time.Time `db:"updated_at"  json:"updated_at"`
+}
+
+type CustomizationOption struct {
+	ID                 int64     `db:"id"                   json:"id"`
+	CustomizationID    int64     `db:"customization_id"     json:"customization_id"`
+	Name               string    `db:"name"                 json:"name"`
+	Price              float64   `db:"price"                json:"price"`
+	Sort               int       `db:"sort"                 json:"sort"`
+	Status             int       `db:"status"               json:"status"`
+	IngredientID       *int64    `db:"ingredient_id"        json:"ingredient_id"`
+	IngredientQuantity float64   `db:"ingredient_quantity"  json:"ingredient_quantity"`
+	CreatedAt          time.Time `db:"created_at"           json:"created_at"`
+	UpdatedAt          time.Time `db:"updated_at"           json:"updated_at"`
+}
+
+type CustomizationOptionStoreStatus struct {
+	CustomizationOptionID int64     `db:"customization_option_id" json:"customization_option_id"`
+	StoreID               int64     `db:"store_id"               json:"store_id"`
+	Status                int       `db:"status"                 json:"status"`
+	CreatedAt             time.Time `db:"created_at"             json:"created_at"`
+	UpdatedAt             time.Time `db:"updated_at"             json:"updated_at"`
+}
