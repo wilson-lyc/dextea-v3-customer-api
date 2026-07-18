@@ -151,11 +151,14 @@ func (r *Repository) FindProductImages(ctx context.Context, productIDs []int64) 
 		       g.url AS url
 		FROM product_images pi
 		LEFT JOIN gallery g ON g.id = pi.image_id
-		WHERE pi.id IN (
-			SELECT MIN(pi2.id) FROM product_images pi2
-			WHERE pi2.product_id IN (?) AND pi2.type = 1
-			GROUP BY pi2.product_id
-		)`,
+		WHERE pi.type = 1
+		  AND pi.product_id IN (?)
+		  AND pi.image_id = (
+			SELECT pi2.image_id FROM product_images pi2
+			WHERE pi2.product_id = pi.product_id AND pi2.type = 1
+			ORDER BY pi2.sort ASC, pi2.image_id ASC
+			LIMIT 1
+		  )`,
 		productIDs,
 	)
 	if err != nil {
