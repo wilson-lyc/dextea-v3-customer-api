@@ -20,6 +20,7 @@ func NewHandler(svc *Service) *Handler {
 func (h *Handler) Register(r *gin.Engine) {
 	area := r.Group("/api/v1/area")
 	area.GET("/regeo", h.ReverseGeocode)
+	area.GET("/cities", h.GetCities)
 }
 
 // ReverseGeocode 逆地址编码接口
@@ -33,6 +34,17 @@ func (h *Handler) ReverseGeocode(c *gin.Context) {
 	}
 
 	result, err := h.svc.ReverseGeocode(c.Request.Context(), req)
+	if err != nil {
+		response.HandleError(c, err)
+		return
+	}
+	response.OK(c, result)
+}
+
+// GetCities 获取城市列表
+// GET /api/v1/area/cities
+func (h *Handler) GetCities(c *gin.Context) {
+	result, err := h.svc.GetCities(c.Request.Context())
 	if err != nil {
 		response.HandleError(c, err)
 		return

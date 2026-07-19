@@ -101,23 +101,6 @@ func (r *Repository) Search(ctx context.Context, city, keyword string) ([]Store,
 	return stores, nil
 }
 
-// 获取去重后的城市列表，按城市名排序。
-func (r *Repository) GetDistinctCities(ctx context.Context) ([]string, error) {
-	if r.db == nil {
-		return nil, ErrDBDisabled
-	}
-
-	query := `SELECT DISTINCT city FROM stores WHERE city != '' ORDER BY city`
-	var cities []string
-	if err := r.db.SelectContext(ctx, &cities, query); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, nil
-		}
-		return nil, err
-	}
-	return cities, nil
-}
-
 // escapeLikeValue 转义 LIKE 通配符，防止用户输入 % _ \ 干扰匹配。
 func escapeLikeValue(s string) string {
 	var b strings.Builder

@@ -22,7 +22,6 @@ func (h *Handler) Register(r *gin.Engine) {
 	store.GET("/nearby", h.Nearby)
 	store.GET("/search", h.Search)
 	store.GET("/detail", h.GetDetail)
-	store.GET("/cities", h.GetCities)
 }
 
 func (h *Handler) Nearby(c *gin.Context) {
@@ -50,16 +49,6 @@ func (h *Handler) Search(c *gin.Context) {
 	}
 
 	result, err := h.svc.Search(c.Request.Context(), req)
-	if err != nil {
-		response.HandleError(c, err)
-		return
-	}
-	response.OK(c, result)
-}
-
-// 获取城市列表
-func (h *Handler) GetCities(c *gin.Context) {
-	result, err := h.svc.GetCities(c.Request.Context())
 	if err != nil {
 		response.HandleError(c, err)
 		return

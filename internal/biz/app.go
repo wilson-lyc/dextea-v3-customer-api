@@ -48,7 +48,7 @@ func New(cfg *config.Config) (*gin.Engine, func(), error) {
 
 	// 业务模块注册
 	handlers := []server.Registerable{
-		area.NewModule(cfg.AmapAPIKey),
+		area.NewModule(database, rdb, cfg),
 		customer.NewModule(database, rdb, cfg, alipayClient),
 		store.NewModule(database, rdb),
 		menu.NewModule(database),

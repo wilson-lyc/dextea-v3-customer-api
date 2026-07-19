@@ -13,6 +13,12 @@ type ReverseGeocodeResponse struct {
 	District string `json:"district"`
 }
 
+// CityLetterGroup 城市按首字母分组响应结构
+type CityLetterGroup struct {
+	Letter string   `json:"letter"`
+	Cities []string `json:"cities"`
+}
+
 // amapRegeoResponse 高德逆地址编码 API 原始响应
 type amapRegeoResponse struct {
 	Status   string `json:"status"`
