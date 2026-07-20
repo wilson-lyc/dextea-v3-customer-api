@@ -94,16 +94,19 @@ func (s *Service) ReverseGeocode(ctx context.Context, req ReverseGeocodeRequest)
 // GetCities 获取城市列表
 // 优先从 Redis 缓存读取；缓存未命中或 Redis 不可用时回源 MySQL，
 // 命中后写回缓存以避免后续请求反复访问数据库。
+//
+// 临时调整：暂时关闭 Redis 缓存，全部直接走 MySQL 读取。
 func (s *Service) GetCities(ctx context.Context) ([]CityLetterGroup, error) {
 	// 1. 尝试从 Redis 读取缓存
-	if s.rdb != nil {
-		if cached, err := s.rdb.Get(ctx, citiesCacheKey).Bytes(); err == nil && len(cached) > 0 {
-			var result []CityLetterGroup
-			if jsonErr := json.Unmarshal(cached, &result); jsonErr == nil {
-				return result, nil
-			}
-		}
-	}
+	// 临时：关闭 Redis 缓存，跳过缓存读取，全部走 MySQL。
+	// if s.rdb != nil {
+	// 	if cached, err := s.rdb.Get(ctx, citiesCacheKey).Bytes(); err == nil && len(cached) > 0 {
+	// 		var result []CityLetterGroup
+	// 		if jsonErr := json.Unmarshal(cached, &result); jsonErr == nil {
+	// 			return result, nil
+	// 		}
+	// 	}
+	// }
 
 	// 2. 缓存未命中（或不可用），回源数据库
 	cities, err := s.repo.GetDistinctCities(ctx)
@@ -139,11 +142,12 @@ func (s *Service) GetCities(ctx context.Context) ([]CityLetterGroup, error) {
 	}
 
 	// 3. 写回缓存，供后续请求直接命中（Redis 不可用时静默跳过）。
-	if s.rdb != nil {
-		if data, jsonErr := json.Marshal(result); jsonErr == nil {
-			_ = s.rdb.Set(ctx, citiesCacheKey, data, citiesCacheTTL).Err()
-		}
-	}
+	// 临时：关闭 Redis 缓存，跳过缓存写入。
+	// if s.rdb != nil {
+	// 	if data, jsonErr := json.Marshal(result); jsonErr == nil {
+	// 		_ = s.rdb.Set(ctx, citiesCacheKey, data, citiesCacheTTL).Err()
+	// 	}
+	// }
 
 	return result, nil
 }
