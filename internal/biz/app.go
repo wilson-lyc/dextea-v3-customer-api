@@ -10,6 +10,7 @@ import (
 	"github.com/dextea-v3/dextea-customer/api/internal/biz/area"
 	"github.com/dextea-v3/dextea-customer/api/internal/biz/customer"
 	"github.com/dextea-v3/dextea-customer/api/internal/biz/menu"
+	"github.com/dextea-v3/dextea-customer/api/internal/biz/order"
 	"github.com/dextea-v3/dextea-customer/api/internal/biz/product"
 	"github.com/dextea-v3/dextea-customer/api/internal/biz/store"
 	"github.com/dextea-v3/dextea-customer/api/internal/config"
@@ -53,6 +54,7 @@ func New(cfg *config.Config) (*gin.Engine, func(), error) {
 		store.NewModule(database, rdb),
 		menu.NewModule(database),
 		product.NewModule(database),
+		order.NewModule(cfg),
 	}
 
 	engine := router.Setup(cfg, handlers...)
