@@ -42,7 +42,8 @@ type Config struct {
 	// 订单模块自身不执行业务，仅将请求转发到 Java 订单服务。
 	// OrderServiceBaseURL 为 Java 订单服务基础地址，各接口的转发路径独立配置。
 	OrderServiceBaseURL string
-	OrderCalculatePath  string
+	OrderCreatePath     string
+	OrderPreBuildPath   string
 }
 
 func Load() *Config {
@@ -77,7 +78,8 @@ func Load() *Config {
 		JWTExpireHours: getEnvInt("JWT_EXPIRE_HOURS", 168),
 
 		OrderServiceBaseURL: getEnv("ORDER_SERVICE_BASE_URL", ""),
-		OrderCalculatePath:  getEnv("ORDER_CALCULATE_PATH", "/order/calculate"),
+		OrderCreatePath:     getEnv("ORDER_CREATE_PATH", "/order"),
+		OrderPreBuildPath:   getEnv("ORDER_PRE_BUILD_PATH", "/order/pre-build"),
 	}
 }
 

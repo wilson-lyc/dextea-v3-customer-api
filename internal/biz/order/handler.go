@@ -19,18 +19,19 @@ func NewHandler(svc *Service) *Handler {
 
 func (h *Handler) Register(r *gin.Engine) {
 	g := r.Group("/api/v1/orders")
-	g.POST("/calculate", h.Calculate)
+	g.POST("", func(c *gin.Context) { h.handle(c, h.svc.Create) })
+	g.POST("/pre-build", func(c *gin.Context) { h.handle(c, h.svc.PreBuild) })
 }
 
-func (h *Handler) Calculate(c *gin.Context) {
+func (h *Handler) handle(c *gin.Context, fn func(context.Context, []byte) (*ForwardResult, error)) {
 	body, err := io.ReadAll(c.Request.Body)
 	if err != nil {
-		log.Printf("[WARN] order calculate read request body failed: %+v", err)
+		log.Printf("[WARN] order forward read request body failed: %+v", err)
 		response.FailBadRequest(c, "读取请求体失败")
 		return
 	}
 
-	result, err := h.svc.Calculate(c.Request.Context(), body)
+	result, err := fn(c.Request.Context(), body)
 	if err != nil {
 		response.HandleError(c, err)
 		return

@@ -21,21 +21,27 @@ type ForwardResult struct {
 }
 
 type Service struct {
-	httpClient    *http.Client
-	baseURL       string
-	calculatePath string
+	httpClient   *http.Client
+	baseURL      string
+	createPath   string
+	preBuildPath string
 }
 
 func NewService(cfg *config.Config) *Service {
 	return &Service{
-		httpClient:    &http.Client{Timeout: orderHTTPTimeout},
-		baseURL:       strings.TrimRight(cfg.OrderServiceBaseURL, "/"),
-		calculatePath: cfg.OrderCalculatePath,
+		httpClient:   &http.Client{Timeout: orderHTTPTimeout},
+		baseURL:      strings.TrimRight(cfg.OrderServiceBaseURL, "/"),
+		createPath:   cfg.OrderCreatePath,
+		preBuildPath: cfg.OrderPreBuildPath,
 	}
 }
 
-func (s *Service) Calculate(ctx context.Context, body []byte) (*ForwardResult, error) {
-	return s.forward(ctx, s.calculatePath, body)
+func (s *Service) Create(ctx context.Context, body []byte) (*ForwardResult, error) {
+	return s.forward(ctx, s.createPath, body)
+}
+
+func (s *Service) PreBuild(ctx context.Context, body []byte) (*ForwardResult, error) {
+	return s.forward(ctx, s.preBuildPath, body)
 }
 
 func (s *Service) forward(ctx context.Context, path string, body []byte) (*ForwardResult, error) {
