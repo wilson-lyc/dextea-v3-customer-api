@@ -13,11 +13,11 @@ import (
 	"github.com/dextea-v3/dextea-customer/api/internal/jwt"
 )
 
-// customerIDHeader 是注入到请求头、供后续业务读取的 customer 标识头。
-const customerIDHeader = "X-Customer-Id"
+// CustomerIDHeader 是注入到请求头、供后续业务读取的 customer 标识头。
+const CustomerIDHeader = "X-Customer-Id"
 
-// customerIDContextKey 是写入 gin context 的 key，便于 handler 直接取用。
-const customerIDContextKey = "customerID"
+// CustomerIDContextKey 是写入 gin context 的 key，便于 handler 直接取用。
+const CustomerIDContextKey = "customerID"
 
 // Auth 返回 gin 鉴权中间件。
 //
@@ -62,8 +62,8 @@ func Auth(cfg *config.Config, whitelist []string) gin.HandlerFunc {
 		}
 
 		// 校验通过：将 customerid 注入请求头，供后续业务读取。
-		c.Request.Header.Set(customerIDHeader, strconv.FormatInt(claims.UID, 10))
-		c.Set(customerIDContextKey, claims.UID)
+		c.Request.Header.Set(CustomerIDHeader, strconv.FormatInt(claims.UID, 10))
+		c.Set(CustomerIDContextKey, claims.UID)
 
 		c.Next()
 	}
