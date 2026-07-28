@@ -16,13 +16,14 @@ import (
 
 const orderHTTPTimeout = 10 * time.Second
 
-// 订单服务各接口的转发路径后缀（基础地址 ORDER_SERVICE_BASE_URL 已包含 /orders 前缀）。
-// 这里把路径「写死」在代码中，不再依赖任何环境变量配置。
+// 订单服务各接口的转发路径（基础地址为 ORDER_SERVICE_BASE_URL，即交易端后台 /api/v1）。
+// 这里把 /orders 前缀及各接口路径「写死」在代码中，与交易端 OpenAPI 文档保持一致，
+// 不再依赖任何环境变量配置。
 const (
-	pathSuffixCreate   = ""                  // 创建订单        POST  /orders
-	pathSuffixPreBuild = "/pre-build"        // 预构建订单      POST  /orders/pre-build
-	pathSuffixList     = ""                  // 订单列表        GET    /orders
-	// 订单详情 / 状态在 orderID 之前拼接为 /orders/{orderId} 与 /orders/{orderId}/status
+	pathOrderList   = "/orders"            // 获取订单列表  GET    /api/v1/orders
+	pathOrderCreate = "/orders"            // 创建订单      POST   /api/v1/orders
+	pathOrderPreBuild = "/orders/pre-build" // 预构建订单    POST   /api/v1/orders/pre-build
+	// 详情 / 状态：/api/v1/orders/{orderId} 与 /api/v1/orders/{orderId}/status
 )
 
 // ForwardResult 封装下游订单服务返回的原始响应，由 handler 透传写出。
@@ -49,27 +50,27 @@ func NewService(cfg *config.Config) *Service {
 
 // Create 创建订单：POST /api/v1/orders
 func (s *Service) Create(ctx context.Context, customerID int64, body []byte) (*ForwardResult, error) {
-	return s.forwardWithBody(ctx, pathSuffixCreate, customerID, body)
+	return s.forwardWithBody(ctx, pathOrderCreate, customerID, body)
 }
 
 // PreBuild 预构建订单：POST /api/v1/orders/pre-build
 func (s *Service) PreBuild(ctx context.Context, customerID int64, body []byte) (*ForwardResult, error) {
-	return s.forwardWithBody(ctx, pathSuffixPreBuild, customerID, body)
+	return s.forwardWithBody(ctx, pathOrderPreBuild, customerID, body)
 }
 
 // List 获取订单列表：GET /api/v1/orders
 func (s *Service) List(ctx context.Context, customerID int64, rawQuery string) (*ForwardResult, error) {
-	return s.forwardWithQuery(ctx, pathSuffixList, customerID, rawQuery)
+	return s.forwardWithQuery(ctx, pathOrderList, customerID, rawQuery)
 }
 
 // Detail 获取订单详情：GET /api/v1/orders/{orderId}
 func (s *Service) Detail(ctx context.Context, customerID int64, orderID string, rawQuery string) (*ForwardResult, error) {
-	return s.forwardWithQuery(ctx, "/"+orderID, customerID, rawQuery)
+	return s.forwardWithQuery(ctx, "/orders/"+orderID, customerID, rawQuery)
 }
 
 // Status 获取订单状态：GET /api/v1/orders/{orderId}/status
 func (s *Service) Status(ctx context.Context, customerID int64, orderID string, rawQuery string) (*ForwardResult, error) {
-	return s.forwardWithQuery(ctx, "/"+orderID+"/status", customerID, rawQuery)
+	return s.forwardWithQuery(ctx, "/orders/"+orderID+"/status", customerID, rawQuery)
 }
 
 // ---- 转发实现 ----
