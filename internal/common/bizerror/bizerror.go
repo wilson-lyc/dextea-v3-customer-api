@@ -14,6 +14,7 @@ var (
 	CodeDBDisabled     = BizErrorCode{Code: 50300, Message: "数据库未启用"}
 	CodeInternal       = BizErrorCode{Code: 50000, Message: "内部错误"}
 	CodeValidationFail = BizErrorCode{Code: 40001, Message: "请求参数不合法"}
+	CodeUnauthorized   = BizErrorCode{Code: 40100, Message: "未登录或登录已过期"}
 )
 
 type BizError struct {

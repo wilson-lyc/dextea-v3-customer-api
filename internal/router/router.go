@@ -20,7 +20,7 @@ func Setup(cfg *config.Config, handlers ...server.Registerable) *gin.Engine {
 	r := gin.New()
 	// Logger 记录访问日志；ExceptionInterceptor 作为全局异常拦截器，
 	// 替代 gin.Recovery：不仅能捕获 panic，还会把系统异常清洗为统一的对外提示。
-	r.Use(gin.Logger(), middleware.CORS(), middleware.ExceptionInterceptor())
+	r.Use(gin.Logger(), middleware.CORS(), middleware.ExceptionInterceptor(), middleware.Auth(cfg, cfg.AuthWhitelist))
 
 	// 各业务模块自行注册路由，router 只负责引擎与全局中间件。
 	for _, h := range handlers {

@@ -7,3 +7,19 @@ $:
       services:
         - vscode
         - docker
+      stages:
+        - name: 配置 Go 环境
+          script:
+            - |
+              if ! command -v go >/dev/null 2>&1; then
+                curl -fsSL https://go.dev/dl/go1.26.linux-amd64.tar.gz | tar -C /usr/local -xz
+                echo 'export PATH=$PATH:/usr/local/go/bin' >> ~/.bashrc
+                export PATH=$PATH:/usr/local/go/bin
+              fi
+              go version
+            - go env -w GOPROXY=https://goproxy.cn,direct
+            - go env -w GOFLAGS=-mod=mod
+        - name: 拉取依赖并编译验证
+          script:
+            - go mod download
+            - go build ./...

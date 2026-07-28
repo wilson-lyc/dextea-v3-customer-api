@@ -39,6 +39,10 @@ type Config struct {
 	JWTSecret      string
 	JWTExpireHours int
 
+	// AuthWhitelist 为免鉴权路径白名单（精确匹配请求路径）。
+	// 为空时默认放行登录接口 /api/v1/customers/login。
+	AuthWhitelist []string
+
 	// 订单模块自身不执行业务，仅将请求转发到 Java 订单服务。
 	// OrderServiceBaseURL 为 Java 订单服务基础地址，各接口的转发路径独立配置。
 	OrderServiceBaseURL string
@@ -78,6 +82,8 @@ func Load() *Config {
 
 		JWTSecret:      getEnv("JWT_SECRET", ""),
 		JWTExpireHours: getEnvInt("JWT_EXPIRE_HOURS", 168),
+
+		AuthWhitelist: getEnvList("AUTH_WHITELIST", []string{"/api/v1/customers/login"}),
 
 		OrderServiceBaseURL: getEnv("ORDER_SERVICE_BASE_URL", ""),
 		OrderCreatePath:     getEnv("ORDER_CREATE_PATH", "/order"),
@@ -193,4 +199,24 @@ func getEnvBool(key string, fallback bool) bool {
 		}
 	}
 	return fallback
+}
+
+// getEnvList 读取逗号分隔的环境变量，返回去空白后的字符串切片。
+// 未配置或为空时返回 fallback。
+func getEnvList(key string, fallback []string) []string {
+	v, ok := os.LookupEnv(key)
+	if !ok || strings.TrimSpace(v) == "" {
+		return fallback
+	}
+	parts := strings.Split(v, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if t := strings.TrimSpace(p); t != "" {
+			out = append(out, t)
+		}
+	}
+	if len(out) == 0 {
+		return fallback
+	}
+	return out
 }
