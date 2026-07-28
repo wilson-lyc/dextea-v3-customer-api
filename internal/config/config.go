@@ -44,6 +44,8 @@ type Config struct {
 	OrderServiceBaseURL string
 	OrderCreatePath     string
 	OrderPreBuildPath   string
+	OrderListPath       string
+	OrderDetailPath     string
 }
 
 func Load() *Config {
@@ -80,6 +82,8 @@ func Load() *Config {
 		OrderServiceBaseURL: getEnv("ORDER_SERVICE_BASE_URL", ""),
 		OrderCreatePath:     getEnv("ORDER_CREATE_PATH", "/order"),
 		OrderPreBuildPath:   getEnv("ORDER_PRE_BUILD_PATH", "/order/pre-build"),
+		OrderListPath:       getEnv("ORDER_LIST_PATH", "/order"),
+		OrderDetailPath:     getEnv("ORDER_DETAIL_PATH", "/order"),
 	}
 }
 
