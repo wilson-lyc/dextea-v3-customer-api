@@ -50,6 +50,7 @@ type Config struct {
 	OrderPreBuildPath   string
 	OrderListPath       string
 	OrderDetailPath     string
+	OrderStatusPath     string
 }
 
 func Load() *Config {
@@ -90,6 +91,7 @@ func Load() *Config {
 		OrderPreBuildPath:   getEnv("ORDER_PRE_BUILD_PATH", "/order/pre-build"),
 		OrderListPath:       getEnv("ORDER_LIST_PATH", "/order"),
 		OrderDetailPath:     getEnv("ORDER_DETAIL_PATH", "/order"),
+		OrderStatusPath:     getEnv("ORDER_STATUS_PATH", "/order/status"),
 	}
 }
 

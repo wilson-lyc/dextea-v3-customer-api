@@ -7,23 +7,23 @@ import (
 	"io"
 	"net/http"
 	"strconv"
-	"net/url"
 	"strings"
 	"time"
 
 	"github.com/dextea-v3/dextea-customer/api/internal/common/bizerror"
 	"github.com/dextea-v3/dextea-customer/api/internal/config"
-	"github.com/dextea-v3/dextea-customer/api/internal/middleware"
 )
 
 const orderHTTPTimeout = 10 * time.Second
 
+// ForwardResult 封装下游订单服务返回的原始响应，由 handler 透传写出。
 type ForwardResult struct {
 	StatusCode  int
 	ContentType string
 	Body        []byte
 }
 
+// Service 负责把 Order 模块的请求转发到下游 Java 订单服务，自身不执行业务逻辑。
 type Service struct {
 	httpClient   *http.Client
 	baseURL      string
@@ -31,6 +31,7 @@ type Service struct {
 	preBuildPath string
 	listPath     string
 	detailPath   string
+	statusPath   string
 }
 
 func NewService(cfg *config.Config) *Service {
@@ -41,41 +42,88 @@ func NewService(cfg *config.Config) *Service {
 		preBuildPath: cfg.OrderPreBuildPath,
 		listPath:     cfg.OrderListPath,
 		detailPath:   cfg.OrderDetailPath,
+		statusPath:   cfg.OrderStatusPath,
 	}
 }
 
+// ---- 以下为 5 个路由对应的转发方法 ----
+
+// Create 创建订单：POST /api/v1/orders
 func (s *Service) Create(ctx context.Context, customerID int64, body []byte) (*ForwardResult, error) {
-	return s.forward(ctx, s.createPath, customerID, body)
+	return s.forwardWithBody(ctx, s.createPath, customerID, body)
 }
 
+// PreBuild 预构建订单：POST /api/v1/orders/pre-build
 func (s *Service) PreBuild(ctx context.Context, customerID int64, body []byte) (*ForwardResult, error) {
-	return s.forward(ctx, s.preBuildPath, customerID, body)
+	return s.forwardWithBody(ctx, s.preBuildPath, customerID, body)
 }
 
-// customerIDFields 是请求体中可能出现的「顾客标识」字段名（兼容下划线/驼峰）。
-// 这些字段会被强制改写为已通过鉴权的顾客 id，杜绝越权访问他人数据。
-var customerIDFields = []string{
-	"customer_id", "customerId", "customerID",
-	"user_id", "userId", "userID",
+// List 获取订单列表：GET /api/v1/orders
+func (s *Service) List(ctx context.Context, customerID int64, rawQuery string) (*ForwardResult, error) {
+	return s.forwardWithQuery(ctx, s.listPath, customerID, rawQuery)
 }
 
-func (s *Service) forward(ctx context.Context, path string, customerID int64, body []byte) (*ForwardResult, error) {
+// Detail 获取订单详情：GET /api/v1/orders/{orderId}
+func (s *Service) Detail(ctx context.Context, customerID int64, orderID string, rawQuery string) (*ForwardResult, error) {
+	path := joinPathWithID(s.detailPath, orderID)
+	return s.forwardWithQuery(ctx, path, customerID, rawQuery)
+}
+
+// Status 获取订单状态：GET /api/v1/orders/{orderId}/status
+func (s *Service) Status(ctx context.Context, customerID int64, orderID string, rawQuery string) (*ForwardResult, error) {
+	path := joinPathWithID(s.statusPath, orderID)
+	return s.forwardWithQuery(ctx, path, customerID, rawQuery)
+}
+
+// ---- 转发实现 ----
+
+// forwardWithBody 转发带请求体的请求（POST），在写入下游前强制用已认证的
+// Customer ID 覆盖请求体中的顾客标识字段，防止越权操作他人数据。
+func (s *Service) forwardWithBody(ctx context.Context, path string, customerID int64, body []byte) (*ForwardResult, error) {
 	if s.baseURL == "" {
 		return nil, bizerror.New(CodeOrderServiceNotConfigured)
 	}
 
-	url := s.baseURL + path
-	// 用已认证的顾客 id 覆盖请求体中的顾客标识，防止 A 的令牌操作/查询 B 的数据。
+	target := s.baseURL + path
+	// 用已认证的顾客 id 覆盖请求体中的顾客标识，杜绝 A 的令牌操作 B 的数据。
 	body = bindCustomerOwnership(body, customerID)
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, target, bytes.NewReader(body))
 	if err != nil {
 		return nil, bizerror.New(CodeOrderServiceError, "构建订单服务请求失败")
 	}
-	httpReq.Header.Set("Content-Type", "application/json")
-	// 透传已认证的顾客身份，供下游订单服务据此做数据归属校验。
-	httpReq.Header.Set(middleware.CustomerIDHeader, strconv.FormatInt(customerID, 10))
+	req.Header.Set("Content-Type", "application/json")
+	// 透传已认证的顾客身份（固定头 X-Customer-Id），供下游据此做数据归属校验。
+	req.Header.Set(CustomerIDHeader, strconv.FormatInt(customerID, 10))
 
-	resp, err := s.httpClient.Do(httpReq)
+	return doForward(s.httpClient, req)
+}
+
+// forwardWithQuery 转发查询类请求（GET），把原始查询串与路径参数透传，
+// 并通过固定头 X-Custom-Id 传递已认证的顾客身份。
+func (s *Service) forwardWithQuery(ctx context.Context, path string, customerID int64, rawQuery string) (*ForwardResult, error) {
+	if s.baseURL == "" {
+		return nil, bizerror.New(CodeOrderServiceNotConfigured)
+	}
+
+	target := s.baseURL + path
+	if rawQuery != "" {
+		target += "?" + rawQuery
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, target, nil)
+	if err != nil {
+		return nil, bizerror.New(CodeOrderServiceError, "构建订单服务请求失败")
+	}
+	// 透传已认证的顾客身份（固定头 X-Customer-Id）。
+	req.Header.Set(CustomerIDHeader, strconv.FormatInt(customerID, 10))
+
+	return doForward(s.httpClient, req)
+}
+
+// doForward 执行下游请求并原样回传响应体，集中处理网络异常。
+func doForward(client *http.Client, req *http.Request) (*ForwardResult, error) {
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, bizerror.New(CodeOrderServiceUnavailable, "请求订单服务失败")
 	}
@@ -98,8 +146,26 @@ func (s *Service) forward(ctx context.Context, path string, customerID int64, bo
 	}, nil
 }
 
+// joinPathWithID 将订单 ID 拼接进路径，确保最终路径合法（仅做基本清洗）。
+// 例如 joinPathWithID("/order", "123") -> "/order/123"。
+func joinPathWithID(prefix, orderID string) string {
+	orderID = strings.TrimSpace(orderID)
+	prefix = strings.TrimRight(prefix, "/")
+	if orderID == "" {
+		return prefix
+	}
+	return prefix + "/" + orderID
+}
+
+// customerIDFields 是请求体中可能出现的「顾客标识」字段名（兼容下划线/驼峰）。
+// 这些字段会被强制改写为已通过鉴权的顾客 id，杜绝越权访问他人数据。
+var customerIDFields = []string{
+	"customer_id", "customerId", "customerID",
+	"user_id", "userId", "userID",
+}
+
 // bindCustomerOwnership 将请求体 JSON 中的顾客标识字段强制改写为 customerID。
-// 若请求体不是 JSON 或解析失败，则原样返回，依赖下游通过 X-Customer-Id 头校验归属。
+// 若请求体不是 JSON 或解析失败，则原样返回，依赖下游通过 X-Custom-Id 头校验归属。
 func bindCustomerOwnership(body []byte, customerID int64) []byte {
 	dec := json.NewDecoder(bytes.NewReader(body))
 	dec.UseNumber()
