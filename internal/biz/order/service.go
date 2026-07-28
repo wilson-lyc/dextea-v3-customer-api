@@ -16,6 +16,15 @@ import (
 
 const orderHTTPTimeout = 10 * time.Second
 
+// 订单服务各接口的转发路径后缀（基础地址 ORDER_SERVICE_BASE_URL 已包含 /orders 前缀）。
+// 这里把路径「写死」在代码中，不再依赖任何环境变量配置。
+const (
+	pathSuffixCreate   = ""                  // 创建订单        POST  /orders
+	pathSuffixPreBuild = "/pre-build"        // 预构建订单      POST  /orders/pre-build
+	pathSuffixList     = ""                  // 订单列表        GET    /orders
+	// 订单详情 / 状态在 orderID 之前拼接为 /orders/{orderId} 与 /orders/{orderId}/status
+)
+
 // ForwardResult 封装下游订单服务返回的原始响应，由 handler 透传写出。
 type ForwardResult struct {
 	StatusCode  int
@@ -25,24 +34,14 @@ type ForwardResult struct {
 
 // Service 负责把 Order 模块的请求转发到下游 Java 订单服务，自身不执行业务逻辑。
 type Service struct {
-	httpClient   *http.Client
-	baseURL      string
-	createPath   string
-	preBuildPath string
-	listPath     string
-	detailPath   string
-	statusPath   string
+	httpClient *http.Client
+	baseURL    string
 }
 
 func NewService(cfg *config.Config) *Service {
 	return &Service{
-		httpClient:   &http.Client{Timeout: orderHTTPTimeout},
-		baseURL:      strings.TrimRight(cfg.OrderServiceBaseURL, "/"),
-		createPath:   cfg.OrderCreatePath,
-		preBuildPath: cfg.OrderPreBuildPath,
-		listPath:     cfg.OrderListPath,
-		detailPath:   cfg.OrderDetailPath,
-		statusPath:   cfg.OrderStatusPath,
+		httpClient: &http.Client{Timeout: orderHTTPTimeout},
+		baseURL:    strings.TrimRight(cfg.OrderServiceBaseURL, "/"),
 	}
 }
 
@@ -50,29 +49,27 @@ func NewService(cfg *config.Config) *Service {
 
 // Create 创建订单：POST /api/v1/orders
 func (s *Service) Create(ctx context.Context, customerID int64, body []byte) (*ForwardResult, error) {
-	return s.forwardWithBody(ctx, s.createPath, customerID, body)
+	return s.forwardWithBody(ctx, pathSuffixCreate, customerID, body)
 }
 
 // PreBuild 预构建订单：POST /api/v1/orders/pre-build
 func (s *Service) PreBuild(ctx context.Context, customerID int64, body []byte) (*ForwardResult, error) {
-	return s.forwardWithBody(ctx, s.preBuildPath, customerID, body)
+	return s.forwardWithBody(ctx, pathSuffixPreBuild, customerID, body)
 }
 
 // List 获取订单列表：GET /api/v1/orders
 func (s *Service) List(ctx context.Context, customerID int64, rawQuery string) (*ForwardResult, error) {
-	return s.forwardWithQuery(ctx, s.listPath, customerID, rawQuery)
+	return s.forwardWithQuery(ctx, pathSuffixList, customerID, rawQuery)
 }
 
 // Detail 获取订单详情：GET /api/v1/orders/{orderId}
 func (s *Service) Detail(ctx context.Context, customerID int64, orderID string, rawQuery string) (*ForwardResult, error) {
-	path := joinPathWithID(s.detailPath, orderID)
-	return s.forwardWithQuery(ctx, path, customerID, rawQuery)
+	return s.forwardWithQuery(ctx, "/"+orderID, customerID, rawQuery)
 }
 
 // Status 获取订单状态：GET /api/v1/orders/{orderId}/status
 func (s *Service) Status(ctx context.Context, customerID int64, orderID string, rawQuery string) (*ForwardResult, error) {
-	path := joinPathWithID(s.statusPath, orderID)
-	return s.forwardWithQuery(ctx, path, customerID, rawQuery)
+	return s.forwardWithQuery(ctx, "/"+orderID+"/status", customerID, rawQuery)
 }
 
 // ---- 转发实现 ----
@@ -100,7 +97,7 @@ func (s *Service) forwardWithBody(ctx context.Context, path string, customerID i
 }
 
 // forwardWithQuery 转发查询类请求（GET），把原始查询串与路径参数透传，
-// 并通过固定头 X-Custom-Id 传递已认证的顾客身份。
+// 并通过固定头 X-Customer-Id 传递已认证的顾客身份。
 func (s *Service) forwardWithQuery(ctx context.Context, path string, customerID int64, rawQuery string) (*ForwardResult, error) {
 	if s.baseURL == "" {
 		return nil, bizerror.New(CodeOrderServiceNotConfigured)
@@ -146,17 +143,6 @@ func doForward(client *http.Client, req *http.Request) (*ForwardResult, error) {
 	}, nil
 }
 
-// joinPathWithID 将订单 ID 拼接进路径，确保最终路径合法（仅做基本清洗）。
-// 例如 joinPathWithID("/order", "123") -> "/order/123"。
-func joinPathWithID(prefix, orderID string) string {
-	orderID = strings.TrimSpace(orderID)
-	prefix = strings.TrimRight(prefix, "/")
-	if orderID == "" {
-		return prefix
-	}
-	return prefix + "/" + orderID
-}
-
 // customerIDFields 是请求体中可能出现的「顾客标识」字段名（兼容下划线/驼峰）。
 // 这些字段会被强制改写为已通过鉴权的顾客 id，杜绝越权访问他人数据。
 var customerIDFields = []string{
@@ -165,7 +151,7 @@ var customerIDFields = []string{
 }
 
 // bindCustomerOwnership 将请求体 JSON 中的顾客标识字段强制改写为 customerID。
-// 若请求体不是 JSON 或解析失败，则原样返回，依赖下游通过 X-Custom-Id 头校验归属。
+// 若请求体不是 JSON 或解析失败，则原样返回，依赖下游通过 X-Customer-Id 头校验归属。
 func bindCustomerOwnership(body []byte, customerID int64) []byte {
 	dec := json.NewDecoder(bytes.NewReader(body))
 	dec.UseNumber()

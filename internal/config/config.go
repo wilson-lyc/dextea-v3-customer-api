@@ -44,13 +44,9 @@ type Config struct {
 	AuthWhitelist []string
 
 	// 订单模块自身不执行业务，仅将请求转发到 Java 订单服务。
-	// OrderServiceBaseURL 为 Java 订单服务基础地址，各接口的转发路径独立配置。
+	// OrderServiceBaseURL 为 Java 订单服务基础地址（已包含 /orders 前缀），
+	// 各接口的具体路径（创建、预构建、列表、详情、状态）在 order.Service 中写死。
 	OrderServiceBaseURL string
-	OrderCreatePath     string
-	OrderPreBuildPath   string
-	OrderListPath       string
-	OrderDetailPath     string
-	OrderStatusPath     string
 }
 
 func Load() *Config {
@@ -87,11 +83,6 @@ func Load() *Config {
 		AuthWhitelist: getEnvList("AUTH_WHITELIST", []string{"/api/v1/customers/login"}),
 
 		OrderServiceBaseURL: getEnv("ORDER_SERVICE_BASE_URL", ""),
-		OrderCreatePath:     getEnv("ORDER_CREATE_PATH", "/order"),
-		OrderPreBuildPath:   getEnv("ORDER_PRE_BUILD_PATH", "/order/pre-build"),
-		OrderListPath:       getEnv("ORDER_LIST_PATH", "/order"),
-		OrderDetailPath:     getEnv("ORDER_DETAIL_PATH", "/order"),
-		OrderStatusPath:     getEnv("ORDER_STATUS_PATH", "/order/status"),
 	}
 }
 
