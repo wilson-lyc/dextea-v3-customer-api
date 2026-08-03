@@ -185,7 +185,7 @@ func (s *Service) GetDetail(ctx context.Context, req GetDetailRequest) (*StoreDe
 	}, nil
 }
 
-// 计算两点距离（单位 km），使用 geodist 包实现。
+// 计算两点距离（单位 km）
 func haversine(lng1, lat1, lng2, lat2 float64) float64 {
 	return geodist.HaversineDistance(
 		geodist.Point{Lat: lat1, Long: lng1},
