@@ -79,7 +79,7 @@ func (s *Service) Status(ctx context.Context, customerID int64, orderID string, 
 // Customer ID 覆盖请求体中的顾客标识字段，防止越权操作他人数据。
 func (s *Service) forwardWithBody(ctx context.Context, path string, customerID int64, body []byte) (*ForwardResult, error) {
 	if s.baseURL == "" {
-		return nil, bizerror.New(CodeOrderServiceNotConfigured)
+		return nil, bizerror.New(ErrOrderServiceNotConfigured)
 	}
 
 	target := s.baseURL + path
@@ -88,7 +88,7 @@ func (s *Service) forwardWithBody(ctx context.Context, path string, customerID i
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, target, bytes.NewReader(body))
 	if err != nil {
-		return nil, bizerror.New(CodeOrderServiceError, "构建订单服务请求失败")
+		return nil, bizerror.New(ErrOrderServiceError, "构建订单服务请求失败")
 	}
 	req.Header.Set("Content-Type", "application/json")
 	// 透传已认证的顾客身份（固定头 X-Customer-Id），供下游据此做数据归属校验。
@@ -101,7 +101,7 @@ func (s *Service) forwardWithBody(ctx context.Context, path string, customerID i
 // 并通过固定头 X-Customer-Id 传递已认证的顾客身份。
 func (s *Service) forwardWithQuery(ctx context.Context, path string, customerID int64, rawQuery string) (*ForwardResult, error) {
 	if s.baseURL == "" {
-		return nil, bizerror.New(CodeOrderServiceNotConfigured)
+		return nil, bizerror.New(ErrOrderServiceNotConfigured)
 	}
 
 	target := s.baseURL + path
@@ -111,7 +111,7 @@ func (s *Service) forwardWithQuery(ctx context.Context, path string, customerID 
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, target, nil)
 	if err != nil {
-		return nil, bizerror.New(CodeOrderServiceError, "构建订单服务请求失败")
+		return nil, bizerror.New(ErrOrderServiceError, "构建订单服务请求失败")
 	}
 	// 透传已认证的顾客身份（固定头 X-Customer-Id）。
 	req.Header.Set(CustomerIDHeader, strconv.FormatInt(customerID, 10))
@@ -123,13 +123,13 @@ func (s *Service) forwardWithQuery(ctx context.Context, path string, customerID 
 func doForward(client *http.Client, req *http.Request) (*ForwardResult, error) {
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, bizerror.New(CodeOrderServiceUnavailable, "请求订单服务失败")
+		return nil, bizerror.New(ErrOrderServiceUnavailable, "请求订单服务失败")
 	}
 	defer resp.Body.Close()
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, bizerror.New(CodeOrderServiceUnavailable, "读取订单服务响应失败")
+		return nil, bizerror.New(ErrOrderServiceUnavailable, "读取订单服务响应失败")
 	}
 
 	contentType := resp.Header.Get("Content-Type")

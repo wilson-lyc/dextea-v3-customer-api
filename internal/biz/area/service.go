@@ -49,10 +49,10 @@ func NewService(cfg *config.Config, repo *Repository, rdb *redis.Client) *Servic
 func (s *Service) ReverseGeocode(ctx context.Context, req ReverseGeocodeRequest) (*ReverseGeocodeResponse, error) {
 	// 参数校验
 	if req.Longitude < -180 || req.Longitude > 180 {
-		return nil, bizerror.New(CodeInvalidLocation, "经度取值范围为 -180 到 180")
+		return nil, bizerror.New(ErrInvalidLocation, "经度取值范围为 -180 到 180")
 	}
 	if req.Latitude < -90 || req.Latitude > 90 {
-		return nil, bizerror.New(CodeInvalidLocation, "纬度取值范围为 -90 到 90")
+		return nil, bizerror.New(ErrInvalidLocation, "纬度取值范围为 -90 到 90")
 	}
 
 	// 构造请求 URL：经度在前，纬度在后
@@ -65,7 +65,7 @@ func (s *Service) ReverseGeocode(ctx context.Context, req ReverseGeocodeRequest)
 
 	resp, err := s.httpClient.Do(httpReq)
 	if err != nil {
-		return nil, bizerror.New(CodeAmapUnavailable, "请求高德地图服务失败")
+		return nil, bizerror.New(ErrAmapUnavailable, "请求高德地图服务失败")
 	}
 	defer resp.Body.Close()
 
@@ -81,7 +81,7 @@ func (s *Service) ReverseGeocode(ctx context.Context, req ReverseGeocodeRequest)
 
 	// 高德 status=1 表示成功
 	if amapResp.Status != "1" {
-		return nil, bizerror.New(CodeAmapError, amapResp.Info)
+		return nil, bizerror.New(ErrAmapError, amapResp.Info)
 	}
 
 	return &ReverseGeocodeResponse{

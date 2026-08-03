@@ -16,7 +16,7 @@ func NewService(repo *Repository) *Service {
 
 func (s *Service) GetDetail(ctx context.Context, req GetProductDetailRequest) (*ProductDetailResponse, error) {
 	if s.repo.db == nil {
-		return nil, bizerror.New(bizerror.CodeDBDisabled)
+		return nil, bizerror.New(bizerror.ErrMysqlDisabled)
 	}
 
 	p, err := s.repo.FindByID(ctx, req.ProductID)
@@ -24,7 +24,7 @@ func (s *Service) GetDetail(ctx context.Context, req GetProductDetailRequest) (*
 		return nil, err
 	}
 	if p == nil || p.Status != 1 {
-		return nil, bizerror.New(bizerror.CodeNotFound, "商品不存在")
+		return nil, bizerror.New(&bizerror.BizError{Code: 40400, Message: "资源不存在"}, "商品不存在")
 	}
 
 	storeStatus := 0
@@ -34,17 +34,17 @@ func (s *Service) GetDetail(ctx context.Context, req GetProductDetailRequest) (*
 		storeStatus = *ss
 	}
 
-	customizations, err := s.repo.FindCustomizations(ctx, req.ProductID)
+	items, err := s.repo.FindCustomizationItems(ctx, req.ProductID)
 	if err != nil {
 		return nil, err
 	}
 
-	customizationIDs := make([]int64, 0, len(customizations))
-	for _, c := range customizations {
-		customizationIDs = append(customizationIDs, c.ID)
+	itemIDs := make([]int64, 0, len(items))
+	for _, c := range items {
+		itemIDs = append(itemIDs, c.ID)
 	}
 
-	options, err := s.repo.FindCustomizationOptions(ctx, customizationIDs)
+	options, err := s.repo.FindCustomizationOptions(ctx, itemIDs)
 	if err != nil {
 		return nil, err
 	}
@@ -58,18 +58,18 @@ func (s *Service) GetDetail(ctx context.Context, req GetProductDetailRequest) (*
 		return nil, err
 	} else {
 		for _, st := range statuses {
-			optionStoreStatusMap[st.CustomizationOptionID] = st.Status
+			optionStoreStatusMap[st.OptionID] = st.Status
 		}
 	}
 
-	optionsByCustomization := make(map[int64][]CustomizationOption, len(customizations))
+	optionsByItem := make(map[int64][]CustomizationOption, len(items))
 	for _, o := range options {
-		optionsByCustomization[o.CustomizationID] = append(optionsByCustomization[o.CustomizationID], o)
+		optionsByItem[o.ItemID] = append(optionsByItem[o.ItemID], o)
 	}
 
-	customizationItems := make([]CustomizationItem, 0, len(customizations))
-	for _, c := range customizations {
-		opts := optionsByCustomization[c.ID]
+	customizationItems := make([]CustomizationItemResponse, 0, len(items))
+	for _, c := range items {
+		opts := optionsByItem[c.ID]
 		optionItems := make([]CustomizationOptionItem, 0, len(opts))
 		for _, o := range opts {
 			status := 0
@@ -84,12 +84,12 @@ func (s *Service) GetDetail(ctx context.Context, req GetProductDetailRequest) (*
 				Status:  status,
 			})
 		}
-		customizationItems = append(customizationItems, CustomizationItem{
-			ID:       c.ID,
-			Name:     c.Name,
-			Sort:     c.Sort,
-			Status:   c.Status,
-			Options:  optionItems,
+		customizationItems = append(customizationItems, CustomizationItemResponse{
+			ID:      c.ID,
+			Name:    c.Name,
+			Sort:    c.Sort,
+			Status:  c.Status,
+			Options: optionItems,
 		})
 	}
 
@@ -132,7 +132,7 @@ func (s *Service) GetDetail(ctx context.Context, req GetProductDetailRequest) (*
 
 func (s *Service) GetStoreStatus(ctx context.Context, req GetProductStoreStatusRequest) ([]ProductStoreStatusItem, error) {
 	if s.repo.db == nil {
-		return nil, bizerror.New(bizerror.CodeDBDisabled)
+		return nil, bizerror.New(bizerror.ErrMysqlDisabled)
 	}
 
 	products, err := s.repo.FindByIDs(ctx, req.ProductIDs)

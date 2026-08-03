@@ -20,16 +20,13 @@ func NewRepository(db *sqlx.DB) *Repository {
 	return &Repository{db: db}
 }
 
-// ErrDBDisabled 数据库未启用时返回的统一错误。
-var ErrDBDisabled = bizerror.New(bizerror.CodeDBDisabled)
-
 // FindStoreMenuID 根据门店 ID 查询其绑定的第一个菜单 ID。
 //
 // 复合主键按 store_id, menu_id 排序取首条。
 // 未绑定任何菜单时返回 (0, nil)。
 func (r *Repository) FindStoreMenuID(ctx context.Context, storeID int64) (int64, error) {
 	if r.db == nil {
-		return 0, ErrDBDisabled
+		return 0, bizerror.ErrMysqlDisabled
 	}
 	var menuID int64
 	err := r.db.GetContext(ctx, &menuID,
@@ -48,7 +45,7 @@ func (r *Repository) FindStoreMenuID(ctx context.Context, storeID int64) (int64,
 // 未找到菜单时返回零值 Menu{}，不视为错误。
 func (r *Repository) FindMenu(ctx context.Context, menuID int64) (Menu, error) {
 	if r.db == nil {
-		return Menu{}, ErrDBDisabled
+		return Menu{}, bizerror.ErrMysqlDisabled
 	}
 	var m Menu
 	err := r.db.GetContext(ctx, &m,
@@ -67,7 +64,7 @@ func (r *Repository) FindMenu(ctx context.Context, menuID int64) (Menu, error) {
 // 结果按 sort 升序排列，便于上层按序渲染。
 func (r *Repository) FindGroupsByMenu(ctx context.Context, menuID int64) ([]MenuGroup, error) {
 	if r.db == nil {
-		return nil, ErrDBDisabled
+		return nil, bizerror.ErrMysqlDisabled
 	}
 	var groups []MenuGroup
 	err := r.db.SelectContext(ctx, &groups,
@@ -106,7 +103,7 @@ type productImageRow struct {
 // 结果按 group_id、product_sort 升序排列。
 func (r *Repository) FindGroupProducts(ctx context.Context, groupIDs []int64, storeID int64) ([]groupProductRow, error) {
 	if r.db == nil {
-		return nil, ErrDBDisabled
+		return nil, bizerror.ErrMysqlDisabled
 	}
 	if len(groupIDs) == 0 {
 		return nil, nil
@@ -141,7 +138,7 @@ func (r *Repository) FindGroupProducts(ctx context.Context, groupIDs []int64, st
 // 每个商品取 type=1 的第一张图片（按 MIN(id) 确定），通过 LEFT JOIN gallery 补上可访问地址。
 func (r *Repository) FindProductImages(ctx context.Context, productIDs []int64) ([]productImageRow, error) {
 	if r.db == nil {
-		return nil, ErrDBDisabled
+		return nil, bizerror.ErrMysqlDisabled
 	}
 	if len(productIDs) == 0 {
 		return nil, nil

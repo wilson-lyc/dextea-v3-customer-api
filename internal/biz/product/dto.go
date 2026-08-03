@@ -17,15 +17,15 @@ type ProductStoreStatusItem struct {
 }
 
 type ProductDetailResponse struct {
-	ID             int64                  `json:"id"`
-	Name           string                 `json:"name"`
-	Brief          string                 `json:"brief"`
-	Description    string                 `json:"description"`
-	Status         int                    `json:"status"`
-	Price          float64                `json:"price"`
-	Cover          *ProductImageItem      `json:"cover"`
-	Gallery        []ProductImageItem     `json:"gallery"`
-	Customizations []CustomizationItem    `json:"customizations"`
+	ID             int64                       `json:"id"`
+	Name           string                      `json:"name"`
+	Brief          string                      `json:"brief"`
+	Description    string                      `json:"description"`
+	Status         int                         `json:"status"`
+	Price          float64                     `json:"price"`
+	Cover          *ProductImageItem           `json:"cover"`
+	Gallery        []ProductImageItem          `json:"gallery"`
+	Customizations []CustomizationItemResponse `json:"customizations"`
 }
 
 type ProductImageItem struct {
@@ -35,12 +35,12 @@ type ProductImageItem struct {
 	Type    int    `json:"type"`
 }
 
-type CustomizationItem struct {
-	ID       int64                     `json:"id"`
-	Name     string                    `json:"name"`
-	Sort     int                       `json:"sort"`
-	Status   int                       `json:"status"`
-	Options  []CustomizationOptionItem `json:"options"`
+type CustomizationItemResponse struct {
+	ID      int64                     `json:"id"`
+	Name    string                    `json:"name"`
+	Sort    int                       `json:"sort"`
+	Status  int                       `json:"status"`
+	Options []CustomizationOptionItem `json:"options"`
 }
 
 type CustomizationOptionItem struct {

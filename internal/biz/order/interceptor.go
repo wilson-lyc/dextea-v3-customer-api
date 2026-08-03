@@ -7,7 +7,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/dextea-v3/dextea-customer/api/internal/common/bizerror"
 	"github.com/dextea-v3/dextea-customer/api/internal/common/response"
 	"github.com/dextea-v3/dextea-customer/api/internal/config"
 	"github.com/dextea-v3/dextea-customer/api/internal/jwt"
@@ -37,13 +36,13 @@ func ForwardInterceptor(cfg *config.Config) gin.HandlerFunc {
 		const bearerPrefix = "Bearer "
 		auth := c.GetHeader("Authorization")
 		if !strings.HasPrefix(auth, bearerPrefix) {
-			response.Fail(c, http.StatusUnauthorized, bizerror.CodeUnauthorized.Code, bizerror.CodeUnauthorized.Message)
+			response.Error(c, http.StatusUnauthorized, 40100, "未登录或登录已过期")
 			c.Abort()
 			return
 		}
 		token := strings.TrimSpace(strings.TrimPrefix(auth, bearerPrefix))
 		if token == "" {
-			response.Fail(c, http.StatusUnauthorized, bizerror.CodeUnauthorized.Code, bizerror.CodeUnauthorized.Message)
+			response.Error(c, http.StatusUnauthorized, 40100, "未登录或登录已过期")
 			c.Abort()
 			return
 		}
@@ -52,7 +51,7 @@ func ForwardInterceptor(cfg *config.Config) gin.HandlerFunc {
 		claims, err := jwt.Parse(secret, token)
 		if err != nil {
 			// 不把底层错误细节回显给前端，统一为未登录提示。
-			response.Fail(c, http.StatusUnauthorized, bizerror.CodeUnauthorized.Code, bizerror.CodeUnauthorized.Message)
+			response.Error(c, http.StatusUnauthorized, 40100, "未登录或登录已过期")
 			c.Abort()
 			return
 		}

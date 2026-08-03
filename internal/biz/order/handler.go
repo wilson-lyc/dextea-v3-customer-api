@@ -8,7 +8,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/dextea-v3/dextea-customer/api/internal/common/bizerror"
 	"github.com/dextea-v3/dextea-customer/api/internal/common/response"
 	"github.com/dextea-v3/dextea-customer/api/internal/config"
 )
@@ -47,19 +46,19 @@ func (h *Handler) handlePost(c *gin.Context, fn func(context.Context, int64, []b
 	body, err := io.ReadAll(c.Request.Body)
 	if err != nil {
 		log.Printf("[WARN] order forward read request body failed: %+v", err)
-		response.FailBadRequest(c, "读取请求体失败")
+		response.Error(c, http.StatusBadRequest, 40001, "读取请求体失败")
 		return
 	}
 
 	customerID, ok := h.customerID(c)
 	if !ok {
-		response.Fail(c, http.StatusUnauthorized, bizerror.CodeUnauthorized.Code, bizerror.CodeUnauthorized.Message)
+		response.Error(c, http.StatusUnauthorized, 40100, "未登录或登录已过期")
 		return
 	}
 
 	result, err := fn(c.Request.Context(), customerID, body)
 	if err != nil {
-		response.HandleError(c, err)
+		response.ErrorOf(c, err)
 		return
 	}
 	c.Data(result.StatusCode, result.ContentType, result.Body)
@@ -69,12 +68,12 @@ func (h *Handler) handlePost(c *gin.Context, fn func(context.Context, int64, []b
 func (h *Handler) List(c *gin.Context) {
 	customerID, ok := h.customerID(c)
 	if !ok {
-		response.Fail(c, http.StatusUnauthorized, bizerror.CodeUnauthorized.Code, bizerror.CodeUnauthorized.Message)
+		response.Error(c, http.StatusUnauthorized, 40100, "未登录或登录已过期")
 		return
 	}
 	result, err := h.svc.List(c.Request.Context(), customerID, c.Request.URL.RawQuery)
 	if err != nil {
-		response.HandleError(c, err)
+		response.ErrorOf(c, err)
 		return
 	}
 	c.Data(result.StatusCode, result.ContentType, result.Body)
@@ -84,17 +83,17 @@ func (h *Handler) List(c *gin.Context) {
 func (h *Handler) Detail(c *gin.Context) {
 	customerID, ok := h.customerID(c)
 	if !ok {
-		response.Fail(c, http.StatusUnauthorized, bizerror.CodeUnauthorized.Code, bizerror.CodeUnauthorized.Message)
+		response.Error(c, http.StatusUnauthorized, 40100, "未登录或登录已过期")
 		return
 	}
 	orderID := c.Param("orderId")
 	if orderID == "" {
-		response.FailBadRequest(c, "订单 ID 不能为空")
+		response.Error(c, http.StatusBadRequest, 40001, "订单 ID 不能为空")
 		return
 	}
 	result, err := h.svc.Detail(c.Request.Context(), customerID, orderID, c.Request.URL.RawQuery)
 	if err != nil {
-		response.HandleError(c, err)
+		response.ErrorOf(c, err)
 		return
 	}
 	c.Data(result.StatusCode, result.ContentType, result.Body)
@@ -104,17 +103,17 @@ func (h *Handler) Detail(c *gin.Context) {
 func (h *Handler) Status(c *gin.Context) {
 	customerID, ok := h.customerID(c)
 	if !ok {
-		response.Fail(c, http.StatusUnauthorized, bizerror.CodeUnauthorized.Code, bizerror.CodeUnauthorized.Message)
+		response.Error(c, http.StatusUnauthorized, 40100, "未登录或登录已过期")
 		return
 	}
 	orderID := c.Param("orderId")
 	if orderID == "" {
-		response.FailBadRequest(c, "订单 ID 不能为空")
+		response.Error(c, http.StatusBadRequest, 40001, "订单 ID 不能为空")
 		return
 	}
 	result, err := h.svc.Status(c.Request.Context(), customerID, orderID, c.Request.URL.RawQuery)
 	if err != nil {
-		response.HandleError(c, err)
+		response.ErrorOf(c, err)
 		return
 	}
 	c.Data(result.StatusCode, result.ContentType, result.Body)

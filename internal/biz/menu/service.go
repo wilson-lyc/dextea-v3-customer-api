@@ -17,7 +17,7 @@ func NewService(repo *Repository) *Service {
 func (s *Service) GetStoreMenu(ctx context.Context, storeID int64) (*StoreMenuResponse, error) {
 	// 检查数据库是否启用
 	if s.repo.db == nil {
-		return nil, bizerror.New(bizerror.CodeDBDisabled)
+		return nil, bizerror.New(bizerror.ErrMysqlDisabled)
 	}
 
 	// 查询门店绑定的菜单ID
@@ -26,7 +26,7 @@ func (s *Service) GetStoreMenu(ctx context.Context, storeID int64) (*StoreMenuRe
 		return nil, err
 	}
 	if menuID == 0 {
-		return nil, bizerror.New(bizerror.CodeNotFound, "门店未配置菜单")
+		return nil, bizerror.New(&bizerror.BizError{Code: 40400, Message: "资源不存在"}, "门店未配置菜单")
 	}
 
 	// 查询菜单基础信息

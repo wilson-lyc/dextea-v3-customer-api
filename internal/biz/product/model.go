@@ -30,7 +30,7 @@ type ProductStoreStatus struct {
 	UpdatedAt time.Time `db:"updated_at" json:"updated_at"`
 }
 
-type Customization struct {
+type CustomizationItem struct {
 	ID        int64     `db:"id"          json:"id"`
 	ProductID int64     `db:"product_id"  json:"product_id"`
 	Name      string    `db:"name"        json:"name"`
@@ -42,21 +42,21 @@ type Customization struct {
 
 type CustomizationOption struct {
 	ID                 int64     `db:"id"                   json:"id"`
-	CustomizationID    int64     `db:"customization_id"     json:"customization_id"`
+	ItemID             int64     `db:"item_id"              json:"item_id"`
 	Name               string    `db:"name"                 json:"name"`
 	Price              float64   `db:"price"                json:"price"`
 	Sort               int       `db:"sort"                 json:"sort"`
 	Status             int       `db:"status"               json:"status"`
 	IngredientID       *int64    `db:"ingredient_id"        json:"ingredient_id"`
-	IngredientQuantity float64   `db:"ingredient_quantity"  json:"ingredient_quantity"`
+	IngredientQuantity *float64  `db:"ingredient_quantity"  json:"ingredient_quantity"`
 	CreatedAt          time.Time `db:"created_at"           json:"created_at"`
 	UpdatedAt          time.Time `db:"updated_at"           json:"updated_at"`
 }
 
 type CustomizationOptionStoreStatus struct {
-	CustomizationOptionID int64     `db:"customization_option_id" json:"customization_option_id"`
-	StoreID               int64     `db:"store_id"               json:"store_id"`
-	Status                int       `db:"status"                 json:"status"`
-	CreatedAt             time.Time `db:"created_at"             json:"created_at"`
-	UpdatedAt             time.Time `db:"updated_at"             json:"updated_at"`
+	OptionID  int64     `db:"option_id"  json:"option_id"`
+	StoreID   int64     `db:"store_id"   json:"store_id"`
+	Status    int       `db:"status"     json:"status"`
+	CreatedAt time.Time `db:"created_at" json:"created_at"`
+	UpdatedAt time.Time `db:"updated_at" json:"updated_at"`
 }

@@ -33,7 +33,7 @@ func ExceptionInterceptor() gin.HandlerFunc {
 				// 若响应尚未写出（如 handler 中途 panic），则写出统一的错误响应；
 				// 已写出则不再覆盖，避免重复 WriteHeader 报错。
 				if !c.Writer.Written() {
-					response.WriteError(c, err)
+					response.ErrorOf(c, err)
 				}
 				c.Abort()
 			}

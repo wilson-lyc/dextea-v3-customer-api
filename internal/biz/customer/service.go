@@ -31,7 +31,7 @@ func NewService(repo *Repository, rdb *redis.Client, cfg *config.Config, alipayC
 
 func (s *Service) Login(ctx context.Context, req LoginRequest) (*LoginResponse, error) {
 	if s.repo.db == nil {
-		return nil, ErrDBDisabled
+		return nil, bizerror.ErrMysqlDisabled
 	}
 
 	var openID string
@@ -40,9 +40,9 @@ func (s *Service) Login(ctx context.Context, req LoginRequest) (*LoginResponse, 
 	case PlatformAlipay:
 		openID, err = s.exchangeAlipayOpenID(ctx, req.Code)
 	case PlatformWeixin:
-		return nil, bizerror.New(CodePlatformNotSupported)
+		return nil, bizerror.New(ErrPlatformNotSupported)
 	default:
-		return nil, bizerror.New(CodePlatformInvalid)
+		return nil, bizerror.New(ErrPlatformInvalid)
 	}
 	if err != nil {
 		return nil, err
@@ -57,7 +57,6 @@ func (s *Service) Login(ctx context.Context, req LoginRequest) (*LoginResponse, 
 			Name:         defaultNewCustomerNickname,
 			AlipayOpenID: openID,
 			Status:       1,
-			Platform:     req.Platform.DBValue(),
 		})
 		if err != nil {
 			return nil, err
@@ -69,7 +68,7 @@ func (s *Service) Login(ctx context.Context, req LoginRequest) (*LoginResponse, 
 		Platform: string(req.Platform),
 	}, s.cfg.JWTExpireSeconds())
 	if err != nil {
-		return nil, bizerror.New(bizerror.CodeInternal, "生成登录令牌失败")
+		return nil, bizerror.New(bizerror.ErrInternal, "生成登录令牌失败")
 	}
 
 	return &LoginResponse{
@@ -80,14 +79,12 @@ func (s *Service) Login(ctx context.Context, req LoginRequest) (*LoginResponse, 
 
 func (s *Service) exchangeAlipayOpenID(ctx context.Context, code string) (string, error) {
 	if s.alipay == nil {
-		return "", bizerror.New(CodeAlipayNotConfigured)
+		return "", bizerror.New(ErrAlipayNotConfigured)
 	}
 	openID, err := s.alipay.ExchangeCode(ctx, code)
 	if err != nil {
-		log.Printf("[ERROR] alipay exchange openid failed: %+v", err)
-		return "", bizerror.New(CodeAlipayAuthFailed)
+		log.Printf("[ERROR] 支付宝换取 openid 失败: %+v", err)
+		return "", bizerror.New(ErrAlipayAuthFailed)
 	}
 	return openID, nil
 }
-
-var ErrDBDisabled = bizerror.New(bizerror.CodeDBDisabled)

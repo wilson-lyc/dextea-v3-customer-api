@@ -21,12 +21,10 @@ func NewRepository(db *sqlx.DB) *Repository {
 
 const storeColumns = `id, name, province, city, district, address, status, business_hours, phone, longitude, latitude, account, password, email, created_at, updated_at`
 
-var ErrDBDisabled = bizerror.New(bizerror.CodeDBDisabled)
-
-// FindByIDs 根据 ID 列表批量查询门店，返回结果保持传入 ID 的顺序
+// 根据ID批量查询门店
 func (r *Repository) FindByIDs(ctx context.Context, ids []int64) ([]Store, error) {
 	if r.db == nil {
-		return nil, ErrDBDisabled
+		return nil, bizerror.ErrMysqlDisabled
 	}
 	if len(ids) == 0 {
 		return nil, nil
@@ -51,10 +49,10 @@ func (r *Repository) FindByIDs(ctx context.Context, ids []int64) ([]Store, error
 	return stores, nil
 }
 
-// FindByID 根据 ID 查询单个门店，未找到时返回 nil。
+// 根据ID查询门店
 func (r *Repository) FindByID(ctx context.Context, id int64) (*Store, error) {
 	if r.db == nil {
-		return nil, ErrDBDisabled
+		return nil, bizerror.ErrMysqlDisabled
 	}
 
 	var store Store
@@ -71,7 +69,7 @@ func (r *Repository) FindByID(ctx context.Context, id int64) (*Store, error) {
 // 搜索门店
 func (r *Repository) Search(ctx context.Context, city, keyword string) ([]Store, error) {
 	if r.db == nil {
-		return nil, ErrDBDisabled
+		return nil, bizerror.ErrMysqlDisabled
 	}
 
 	query := `SELECT ` + storeColumns + ` FROM stores WHERE 1=1`
@@ -101,7 +99,7 @@ func (r *Repository) Search(ctx context.Context, city, keyword string) ([]Store,
 	return stores, nil
 }
 
-// escapeLikeValue 转义 LIKE 通配符，防止用户输入 % _ \ 干扰匹配。
+// 防止SQL注入
 func escapeLikeValue(s string) string {
 	var b strings.Builder
 	for _, r := range s {

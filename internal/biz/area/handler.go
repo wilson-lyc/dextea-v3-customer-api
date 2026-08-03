@@ -29,13 +29,13 @@ func (h *Handler) ReverseGeocode(c *gin.Context) {
 	var req ReverseGeocodeRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
 		log.Printf("[WARN] area regeo invalid request params: %+v", err)
-		response.FailBiz(c, bizerror.New(bizerror.CodeValidationFail))
+		response.ErrorBiz(c, bizerror.New(&bizerror.BizError{Code: 40001, Message: "请求参数不合法"}))
 		return
 	}
 
 	result, err := h.svc.ReverseGeocode(c.Request.Context(), req)
 	if err != nil {
-		response.HandleError(c, err)
+		response.ErrorOf(c, err)
 		return
 	}
 	response.OK(c, result)
@@ -46,7 +46,7 @@ func (h *Handler) ReverseGeocode(c *gin.Context) {
 func (h *Handler) GetCities(c *gin.Context) {
 	result, err := h.svc.GetCities(c.Request.Context())
 	if err != nil {
-		response.HandleError(c, err)
+		response.ErrorOf(c, err)
 		return
 	}
 	response.OK(c, result)

@@ -12,8 +12,6 @@ import (
 
 const cityColumns = `city`
 
-var ErrDBDisabled = bizerror.New(bizerror.CodeDBDisabled)
-
 // Repository 负责 area 模块的数据访问。
 type Repository struct {
 	db *sqlx.DB
@@ -26,7 +24,7 @@ func NewRepository(db *sqlx.DB) *Repository {
 // GetDistinctCities 获取去重后的城市列表，按城市名排序。
 func (r *Repository) GetDistinctCities(ctx context.Context) ([]string, error) {
 	if r.db == nil {
-		return nil, ErrDBDisabled
+		return nil, bizerror.ErrMysqlDisabled
 	}
 
 	query := `SELECT DISTINCT ` + cityColumns + ` FROM stores WHERE city != '' ORDER BY city`
