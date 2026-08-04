@@ -16,15 +16,10 @@ import (
 
 const orderHTTPTimeout = 10 * time.Second
 
-// 订单服务各接口的转发路径（基础地址为 ORDER_SERVICE_BASE_URL，即交易端后台 /api/v1）。
-// 这里把 /orders 前缀及各接口路径「写死」在代码中，与交易端 OpenAPI 文档保持一致，
-// 不再依赖任何环境变量配置。
-const (
-	pathOrderList   = "/orders"            // 获取订单列表  GET    /api/v1/orders
-	pathOrderCreate = "/orders"            // 创建订单      POST   /api/v1/orders
-	pathOrderPreBuild = "/orders/pre-build" // 预构建订单    POST   /api/v1/orders/pre-build
-	// 详情 / 状态：/api/v1/orders/{orderId} 与 /api/v1/orders/{orderId}/status
-)
+// goAPIPrefix 是 Go 服务对外挂载 Order 模块的 API 前缀。
+// 转发时需将该前缀从原始请求路径中剥离，再拼接到下游基础地址之后，
+// 否则会与 ORDER_SERVICE_BASE_URL 中已包含的相同前缀重复。
+const goAPIPrefix = "/api/v1"
 
 // ForwardResult 封装下游订单服务返回的原始响应，由 handler 透传写出。
 type ForwardResult struct {
@@ -34,6 +29,8 @@ type ForwardResult struct {
 }
 
 // Service 负责把 Order 模块的请求转发到下游 Java 订单服务，自身不执行业务逻辑。
+// 转发是「目标地址无关」的：不写死任何下游接口路径，请求的 method / path /
+// query / body 原样透传，仅完成统一的身份注入与请求体清洗。
 type Service struct {
 	httpClient *http.Client
 	baseURL    string
@@ -46,77 +43,58 @@ func NewService(cfg *config.Config) *Service {
 	}
 }
 
-// ---- 以下为 5 个路由对应的转发方法 ----
-
-// Create 创建订单：POST /api/v1/orders
-func (s *Service) Create(ctx context.Context, customerID int64, body []byte) (*ForwardResult, error) {
-	return s.forwardWithBody(ctx, pathOrderCreate, customerID, body)
-}
-
-// PreBuild 预构建订单：POST /api/v1/orders/pre-build
-func (s *Service) PreBuild(ctx context.Context, customerID int64, body []byte) (*ForwardResult, error) {
-	return s.forwardWithBody(ctx, pathOrderPreBuild, customerID, body)
-}
-
-// List 获取订单列表：GET /api/v1/orders
-func (s *Service) List(ctx context.Context, customerID int64, rawQuery string) (*ForwardResult, error) {
-	return s.forwardWithQuery(ctx, pathOrderList, customerID, rawQuery)
-}
-
-// Detail 获取订单详情：GET /api/v1/orders/{orderId}
-func (s *Service) Detail(ctx context.Context, customerID int64, orderID string, rawQuery string) (*ForwardResult, error) {
-	return s.forwardWithQuery(ctx, "/orders/"+orderID, customerID, rawQuery)
-}
-
-// Status 获取订单状态：GET /api/v1/orders/{orderId}/status
-func (s *Service) Status(ctx context.Context, customerID int64, orderID string, rawQuery string) (*ForwardResult, error) {
-	return s.forwardWithQuery(ctx, "/orders/"+orderID+"/status", customerID, rawQuery)
-}
-
-// ---- 转发实现 ----
-
-// forwardWithBody 转发带请求体的请求（POST），在写入下游前强制用已认证的
-// Customer ID 覆盖请求体中的顾客标识字段，防止越权操作他人数据。
-func (s *Service) forwardWithBody(ctx context.Context, path string, customerID int64, body []byte) (*ForwardResult, error) {
+// Forward 通用转发：把进入 Order 模块的请求原样转发到下游订单服务。
+//
+// path 为原始请求路径（含 Go 服务自身前缀，如 /api/v1/orders/123），转发时会
+// 剥离 /api/v1 前缀后再拼接 baseURL；method、rawQuery、body 原样透传。
+// 请求体中的顾客标识字段会被强制改写为已认证的 customerID，顾客身份通过
+// 固定头 X-Customer-Id 透传，供下游据此做数据归属校验。
+func (s *Service) Forward(ctx context.Context, customerID int64, method, path, rawQuery string, body []byte) (*ForwardResult, error) {
 	if s.baseURL == "" {
 		return nil, bizerror.New(ErrOrderServiceNotConfigured)
 	}
 
-	target := s.baseURL + path
-	// 用已认证的顾客 id 覆盖请求体中的顾客标识，杜绝 A 的令牌操作 B 的数据。
-	body = bindCustomerOwnership(body, customerID)
+	target := s.baseURL + stripAPIPrefix(path)
+	if rawQuery != "" {
+		target += "?" + rawQuery
+	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, target, bytes.NewReader(body))
+	// 清洗：仅当存在请求体时，用已认证的顾客 id 覆盖请求体中的顾客标识字段，
+	// 杜绝 A 的令牌操作 B 的数据。
+	var reader io.Reader
+	if len(body) > 0 {
+		body = bindCustomerOwnership(body, customerID)
+		reader = bytes.NewReader(body)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, method, target, reader)
 	if err != nil {
 		return nil, bizerror.New(ErrOrderServiceError, "构建订单服务请求失败")
 	}
-	req.Header.Set("Content-Type", "application/json")
+	if len(body) > 0 {
+		req.Header.Set("Content-Type", "application/json")
+	}
 	// 透传已认证的顾客身份（固定头 X-Customer-Id），供下游据此做数据归属校验。
 	req.Header.Set(CustomerIDHeader, strconv.FormatInt(customerID, 10))
 
 	return doForward(s.httpClient, req)
 }
 
-// forwardWithQuery 转发查询类请求（GET），把原始查询串与路径参数透传，
-// 并通过固定头 X-Customer-Id 传递已认证的顾客身份。
-func (s *Service) forwardWithQuery(ctx context.Context, path string, customerID int64, rawQuery string) (*ForwardResult, error) {
-	if s.baseURL == "" {
-		return nil, bizerror.New(ErrOrderServiceNotConfigured)
+// stripAPIPrefix 剥离请求路径中 Go 服务自身的 API 前缀，避免与下游 baseURL 重复。
+// 仅当路径等于该前缀或其后的下一段紧跟 "/" 时才剥离（如 /api/v1/orders），
+// 避免误伤 /api/v10 这类以相同前缀开头的路径；剥离结果为空时回退为 "/"。
+func stripAPIPrefix(path string) string {
+	p := path
+	switch {
+	case p == goAPIPrefix:
+		return "/"
+	case strings.HasPrefix(p, goAPIPrefix+"/"):
+		p = strings.TrimPrefix(p, goAPIPrefix)
 	}
-
-	target := s.baseURL + path
-	if rawQuery != "" {
-		target += "?" + rawQuery
+	if p == "" {
+		return "/"
 	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, target, nil)
-	if err != nil {
-		return nil, bizerror.New(ErrOrderServiceError, "构建订单服务请求失败")
-	}
-	// 透传已认证的顾客身份（固定头 X-Customer-Id）。
-	req.Header.Set(CustomerIDHeader, strconv.FormatInt(customerID, 10))
-
-	return doForward(s.httpClient, req)
+	return p
 }
 
 // doForward 执行下游请求并原样回传响应体，集中处理网络异常。

@@ -44,8 +44,9 @@ type Config struct {
 	AuthWhitelist []string
 
 	// 订单模块自身不执行业务，仅将请求转发到 Java 订单服务。
-	// OrderServiceBaseURL 为 Java 订单服务基础地址（已包含 /orders 前缀），
-	// 各接口的具体路径（创建、预构建、列表、详情、状态）在 order.Service 中写死。
+	// OrderServiceBaseURL 为 Java 订单服务基础地址（交易端后台，如 http://host/api/v1）。
+	// Order 模块是「目标地址无关」的通用转发：请求路径中 Go 服务自身的 /api/v1 前缀
+	// 会被剥离后拼接到该地址之后，下游各接口路径不再写死在代码中。
 	OrderServiceBaseURL string
 }
 

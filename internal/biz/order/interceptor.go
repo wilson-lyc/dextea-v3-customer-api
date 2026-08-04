@@ -24,7 +24,7 @@ const customIDContextKey = "customID"
 // 对所有进入 Order 模块的转发请求，强制按如下顺序处理：
 //  1. 从原始请求的 Authorization: Bearer <token> 中提取 Token；
 //  2. 使用 JWT 解析出其中的 Customer ID（即 uid claim）；
-//  3. 将 Customer ID 写入固定请求头 X-Custom-Id，供后续转发链路向下游透传。
+//  3. 将 Customer ID 写入固定请求头 X-Customer-Id，供后续转发链路向下游透传。
 //
 // 任何一步失败（缺头、格式非法、签名/过期校验不通过）均直接返回 401，
 // 不会进入后续 handler，确保未经过身份解析的请求绝不会被转发。
