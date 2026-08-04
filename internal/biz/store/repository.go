@@ -31,7 +31,7 @@ func (r *Repository) FindByIDs(ctx context.Context, ids []int64) ([]Store, error
 	}
 
 	q, args, err := sqlx.In(
-		`SELECT `+storeColumns+` FROM stores WHERE id IN (?)`,
+		`SELECT `+storeColumns+` FROM stores WHERE id IN (?) AND status IN (0, 1)`,
 		ids,
 	)
 	if err != nil {
@@ -72,7 +72,7 @@ func (r *Repository) Search(ctx context.Context, city, keyword string) ([]Store,
 		return nil, bizerror.ErrMysqlDisabled
 	}
 
-	query := `SELECT ` + storeColumns + ` FROM stores WHERE 1=1`
+	query := `SELECT ` + storeColumns + ` FROM stores WHERE status IN (0, 1)`
 	args := make([]any, 0, 2)
 
 	// city 完全匹配
