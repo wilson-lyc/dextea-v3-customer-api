@@ -3,7 +3,6 @@ package order
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"io"
 	"net/http"
 	"strconv"
@@ -21,6 +20,10 @@ const orderHTTPTimeout = 10 * time.Second
 // 否则会与 ORDER_SERVICE_BASE_URL 中已包含的相同前缀重复。
 const goAPIPrefix = "/api/v1"
 
+// CustomerIDHeader 透传给下游 Java 订单服务的固定顾客标识头。
+// 其值由全局 Auth 中间件从 token 解析并写入，Order 模块原样透传，自身不再解析 token。
+const CustomerIDHeader = "X-Customer-Id"
+
 // ForwardResult 封装下游订单服务返回的原始响应，由 handler 透传写出。
 type ForwardResult struct {
 	StatusCode  int
@@ -28,9 +31,8 @@ type ForwardResult struct {
 	Body        []byte
 }
 
-// Service 负责把 Order 模块的请求转发到下游 Java 订单服务，自身不执行业务逻辑。
-// 转发是「目标地址无关」的：不写死任何下游接口路径，请求的 method / path /
-// query / body 原样透传，仅完成统一的身份注入与请求体清洗。
+// Service 负责把 Order 模块中已与下游一一对应的接口请求转发到 Java 订单服务。
+// 自身不执行业务逻辑，仅完成统一的身份透传（从 X-Customer-Id 头）与请求转发。
 type Service struct {
 	httpClient *http.Client
 	baseURL    string
@@ -43,12 +45,12 @@ func NewService(cfg *config.Config) *Service {
 	}
 }
 
-// Forward 通用转发：把进入 Order 模块的请求原样转发到下游订单服务。
+// Forward 透传单个已与下游一一对应的接口请求到 Java 订单服务。
 //
 // path 为原始请求路径（含 Go 服务自身前缀，如 /api/v1/orders/123），转发时会
 // 剥离 /api/v1 前缀后再拼接 baseURL；method、rawQuery、body 原样透传。
-// 请求体中的顾客标识字段会被强制改写为已认证的 customerID，顾客身份通过
-// 固定头 X-Customer-Id 透传，供下游据此做数据归属校验。
+// 顾客身份通过固定头 X-Customer-Id 透传（已由全局 Auth 中间件解析并写入请求头），
+// 供下游据此做数据归属校验，不再从请求体覆盖顾客标识字段。
 func (s *Service) Forward(ctx context.Context, customerID int64, method, path, rawQuery string, body []byte) (*ForwardResult, error) {
 	if s.baseURL == "" {
 		return nil, bizerror.New(ErrOrderServiceNotConfigured)
@@ -59,11 +61,8 @@ func (s *Service) Forward(ctx context.Context, customerID int64, method, path, r
 		target += "?" + rawQuery
 	}
 
-	// 清洗：仅当存在请求体时，用已认证的顾客 id 覆盖请求体中的顾客标识字段，
-	// 杜绝 A 的令牌操作 B 的数据。
 	var reader io.Reader
 	if len(body) > 0 {
-		body = bindCustomerOwnership(body, customerID)
 		reader = bytes.NewReader(body)
 	}
 
@@ -120,57 +119,4 @@ func doForward(client *http.Client, req *http.Request) (*ForwardResult, error) {
 		ContentType: contentType,
 		Body:        respBody,
 	}, nil
-}
-
-// customerIDFields 是请求体中可能出现的「顾客标识」字段名（兼容下划线/驼峰）。
-// 这些字段会被强制改写为已通过鉴权的顾客 id，杜绝越权访问他人数据。
-var customerIDFields = []string{
-	"customer_id", "customerId", "customerID",
-	"user_id", "userId", "userID",
-}
-
-// bindCustomerOwnership 将请求体 JSON 中的顾客标识字段强制改写为 customerID。
-// 若请求体不是 JSON 或解析失败，则原样返回，依赖下游通过 X-Customer-Id 头校验归属。
-func bindCustomerOwnership(body []byte, customerID int64) []byte {
-	dec := json.NewDecoder(bytes.NewReader(body))
-	dec.UseNumber()
-	var payload map[string]interface{}
-	if err := dec.Decode(&payload); err != nil {
-		return body
-	}
-
-	raw := strconv.FormatInt(customerID, 10)
-	changed := false
-	for _, field := range customerIDFields {
-		v, ok := payload[field]
-		if !ok {
-			continue
-		}
-		switch val := v.(type) {
-		case json.Number:
-			if val.String() != raw {
-				payload[field] = json.Number(raw)
-				changed = true
-			}
-		case string:
-			if val != raw {
-				payload[field] = raw
-				changed = true
-			}
-		case float64:
-			if strconv.FormatInt(int64(val), 10) != raw {
-				payload[field] = raw
-				changed = true
-			}
-		}
-	}
-
-	if !changed {
-		return body
-	}
-	out, err := json.Marshal(payload)
-	if err != nil {
-		return body
-	}
-	return out
 }

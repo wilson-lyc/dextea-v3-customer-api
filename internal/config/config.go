@@ -45,8 +45,9 @@ type Config struct {
 
 	// 订单模块自身不执行业务，仅将请求转发到 Java 订单服务。
 	// OrderServiceBaseURL 为 Java 订单服务基础地址（交易端后台，如 http://host/api/v1）。
-	// Order 模块是「目标地址无关」的通用转发：请求路径中 Go 服务自身的 /api/v1 前缀
-	// 会被剥离后拼接到该地址之后，下游各接口路径不再写死在代码中。
+	// Order 模块的路由与下游 Java 订单服务一一对应，请求路径中 Go 服务自身的 /api/v1
+	// 前缀会被剥离后拼接到该地址之后；顾客身份由全局 Auth 中间件解析并写入 X-Customer-Id
+	// 请求头，转发时原样透传给下游做数据归属校验。
 	OrderServiceBaseURL string
 }
 
