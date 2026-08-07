@@ -16,14 +16,14 @@ type Config struct {
 	Environment string
 	ServiceName string
 
-	DBHost           string
-	DBPort           string
-	DBUser           string
-	DBPassword       string
-	DBName           string
-	DBCharset        string
-	DBParseTime      bool
-	DBLoc            string
+	DBHost      string
+	DBPort      string
+	DBUser      string
+	DBPassword  string
+	DBName      string
+	DBCharset   string
+	DBParseTime bool
+	DBLoc       string
 
 	RedisAddr     string
 	RedisPassword string
@@ -39,15 +39,10 @@ type Config struct {
 	JWTSecret      string
 	JWTExpireHours int
 
-	// AuthWhitelist 为免鉴权路径白名单（精确匹配请求路径）。
-	// 为空时默认放行登录接口 /api/v1/customers/login。
+	// AuthWhitelist 为免鉴权路径白名单（精确匹配请求路径）
 	AuthWhitelist []string
 
-	// 订单模块自身不执行业务，仅将请求转发到 Java 订单服务。
-	// OrderServiceBaseURL 为 Java 订单服务基础地址（交易端后台，如 http://host/api/v1）。
-	// Order 模块的路由与下游 Java 订单服务一一对应，请求路径中 Go 服务自身的 /api/v1
-	// 前缀会被剥离后拼接到该地址之后；顾客身份由全局 Auth 中间件解析并写入 X-Customer-Id
-	// 请求头，转发时原样透传给下游做数据归属校验。
+	// 订单模块请求转发路径
 	OrderServiceBaseURL string
 }
 
@@ -59,14 +54,14 @@ func Load() *Config {
 		Environment: getEnv("ENVIRONMENT", "development"),
 		ServiceName: getEnv("SERVICE_NAME", "dextea-customer-api"),
 
-		DBHost:         getEnv("DB_HOST", ""),
-		DBPort:         getEnv("DB_PORT", "3306"),
-		DBUser:         getEnv("DB_USER", ""),
-		DBPassword:     getEnv("DB_PASSWORD", ""),
-		DBName:         getEnv("DB_NAME", ""),
-		DBCharset:      getEnv("DB_CHARSET", "utf8mb4"),
-		DBParseTime:    getEnvBool("DB_PARSE_TIME", true),
-		DBLoc:          getEnv("DB_LOC", "Local"),
+		DBHost:      getEnv("DB_HOST", ""),
+		DBPort:      getEnv("DB_PORT", "3306"),
+		DBUser:      getEnv("DB_USER", ""),
+		DBPassword:  getEnv("DB_PASSWORD", ""),
+		DBName:      getEnv("DB_NAME", ""),
+		DBCharset:   getEnv("DB_CHARSET", "utf8mb4"),
+		DBParseTime: getEnvBool("DB_PARSE_TIME", true),
+		DBLoc:       getEnv("DB_LOC", "Local"),
 
 		RedisAddr:     getEnv("REDIS_ADDR", ""),
 		RedisPassword: getEnv("REDIS_PASSWORD", ""),
@@ -196,8 +191,6 @@ func getEnvBool(key string, fallback bool) bool {
 	return fallback
 }
 
-// getEnvList 读取逗号分隔的环境变量，返回去空白后的字符串切片。
-// 未配置或为空时返回 fallback。
 func getEnvList(key string, fallback []string) []string {
 	v, ok := os.LookupEnv(key)
 	if !ok || strings.TrimSpace(v) == "" {
