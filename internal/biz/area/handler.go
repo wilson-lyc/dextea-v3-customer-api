@@ -31,7 +31,7 @@ func (h *Handler) ReverseGeocode(c *gin.Context) {
 	var req ReverseGeocodeRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
 		applog.Warn(c.Request.Context(), "area regeo invalid request params", zap.String("error", fmt.Sprintf("%+v", err)))
-		response.ErrorBiz(c, bizerror.New(&bizerror.BizError{Code: 40001, Message: "请求参数不合法"}))
+		response.ErrorBiz(c, bizerror.ErrBadRequest)
 		return
 	}
 

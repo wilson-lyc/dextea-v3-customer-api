@@ -26,7 +26,7 @@ func (s *Service) GetStoreMenu(ctx context.Context, storeID int64) (*StoreMenuRe
 		return nil, err
 	}
 	if menuID == 0 {
-		return nil, bizerror.New(&bizerror.BizError{Code: 40400, Message: "资源不存在"}, "门店未配置菜单")
+		return nil, bizerror.New(&bizerror.BizError{Code: 40400, Message: "资源不存在", Kind: bizerror.KindBusiness}, "门店未配置菜单")
 	}
 
 	// 查询菜单基础信息

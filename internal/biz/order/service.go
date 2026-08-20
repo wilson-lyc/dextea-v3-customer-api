@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cenkalti/backoff/v5"
+
 	"github.com/dextea-v3/dextea-customer/api/internal/common/bizerror"
 	"github.com/dextea-v3/dextea-customer/api/internal/infra/config"
 	"github.com/dextea-v3/dextea-customer/api/internal/infra/nacos"
@@ -19,6 +21,12 @@ import (
 )
 
 const orderHTTPTimeout = 10 * time.Second
+
+// maxRetries 下游瞬时网络失败的有限重试次数（需下游接口幂等）。
+const maxRetries = 2
+
+// orderBreaker 保护订单中台调用：连续失败 5 次熔断，冷却 10s 后探测。
+var orderBreaker = newCircuitBreaker(5, 10*time.Second)
 
 // ForwardResult 封装下游订单服务返回的原始响应，由 handler 透传写出。
 type ForwardResult struct {
@@ -32,6 +40,9 @@ type ForwardResult struct {
 //
 // 寻址优先级：配置了 ORDER_SERVICE_NAME 时走 Nacos 注册中心动态服务发现（推荐，
 // 地址变更无需重启）；否则回退到 ORDER_SERVICE_BASE_URL 静态地址。
+//
+// 异常改进（见 docs/异常处理机制重构方案.md）：统一使用 bizerror 错误中心承载错误、
+// 携带根因与上下文、对瞬时网络错误做有限重试、并以熔断器保护本服务不被持续不可用的下游拖垮。
 type Service struct {
 	httpClient *http.Client
 	baseURL    string // 静态兜底地址
@@ -84,6 +95,10 @@ func (s *Service) Forward(ctx context.Context, customerID int64, method, path, r
 		target += "?" + rawQuery
 	}
 
+	if !orderBreaker.allow() {
+		return nil, bizerror.New(ErrOrderServiceUnavailable, "下游熔断，暂时拒绝请求")
+	}
+
 	var reader io.Reader
 	if len(body) > 0 {
 		reader = bytes.NewReader(body)
@@ -103,7 +118,60 @@ func (s *Service) Forward(ctx context.Context, customerID int64, method, path, r
 	// 使其能继续同一链路，便于跨服务串联排查问题。
 	otel.GetTextMapPropagator().Inject(ctx, propagation.HeaderCarrier(req.Header))
 
-	return doForward(s.httpClient, req)
+	result, err := s.doForward(req)
+	if err != nil {
+		orderBreaker.recordFailure()
+		return nil, err
+	}
+	orderBreaker.recordSuccess()
+	return result, nil
+}
+
+// doForward 执行下游请求并原样回传响应体。对瞬时网络错误做有限重试（指数退避），
+// 但请求构建失败、下游返回非 200 等不可重试错误直接返回。
+func (s *Service) doForward(req *http.Request) (*ForwardResult, error) {
+	operation := func() (*ForwardResult, error) {
+		resp, err := s.httpClient.Do(req)
+		if err != nil {
+			// 上下文超时/取消不可重试；其余网络瞬时错误可重试。
+			if req.Context().Err() != nil {
+				return nil, backoff.Permanent(
+					bizerror.NewWith(ErrOrderServiceUnavailable, bizerror.WithCause(err)))
+			}
+			return nil, bizerror.NewWith(ErrOrderServiceUnavailable, bizerror.WithCause(err))
+		}
+		defer resp.Body.Close()
+
+		respBody, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return nil, backoff.Permanent(
+				bizerror.NewWith(ErrOrderServiceError, bizerror.WithCause(err), bizerror.WithMessage("读取订单服务响应失败")))
+		}
+
+		contentType := resp.Header.Get("Content-Type")
+		if contentType == "" {
+			contentType = "application/json; charset=utf-8"
+		}
+
+		// 下游以 HTTP 状态表达业务结果时，仍透传原响应；仅网络层异常才进入重试/熔断。
+		return &ForwardResult{
+			StatusCode:  resp.StatusCode,
+			ContentType: contentType,
+			Body:        respBody,
+		}, nil
+	}
+
+	result, err := backoff.Retry(req.Context(), operation,
+		backoff.WithMaxTries(maxRetries+1),
+		backoff.WithBackOff(backoff.NewExponentialBackOff()),
+	)
+	if err != nil {
+		if _, ok := bizerror.As(err); ok {
+			return nil, err
+		}
+		return nil, bizerror.NewWith(ErrOrderServiceUnavailable, bizerror.WithCause(err))
+	}
+	return result, nil
 }
 
 // stripAPIPrefix 剥离请求路径中 Go 服务自身的 API 前缀，避免与下游 baseURL 重复。
@@ -121,29 +189,4 @@ func stripAPIPrefix(path string) string {
 		return "/"
 	}
 	return p
-}
-
-// doForward 执行下游请求并原样回传响应体，集中处理网络异常。
-func doForward(client *http.Client, req *http.Request) (*ForwardResult, error) {
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, bizerror.New(ErrOrderServiceUnavailable, "请求订单服务失败")
-	}
-	defer resp.Body.Close()
-
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, bizerror.New(ErrOrderServiceUnavailable, "读取订单服务响应失败")
-	}
-
-	contentType := resp.Header.Get("Content-Type")
-	if contentType == "" {
-		contentType = "application/json; charset=utf-8"
-	}
-
-	return &ForwardResult{
-		StatusCode:  resp.StatusCode,
-		ContentType: contentType,
-		Body:        respBody,
-	}, nil
 }

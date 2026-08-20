@@ -8,6 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 
+	"github.com/dextea-v3/dextea-customer/api/internal/common/bizerror"
 	"github.com/dextea-v3/dextea-customer/api/internal/common/response"
 	applog "github.com/dextea-v3/dextea-customer/api/internal/infra/log"
 	"github.com/dextea-v3/dextea-customer/api/internal/pkg/consts"
@@ -52,13 +53,13 @@ func (h *Handler) Register(r *gin.Engine) {
 func (h *Handler) PreBuild(c *gin.Context) {
 	customerID, ok := h.customerID(c)
 	if !ok {
-		response.Error(c, http.StatusUnauthorized, 40100, "未登录或登录已过期")
+		response.ErrorOf(c, bizerror.ErrUnauthorized)
 		return
 	}
 	body, err := io.ReadAll(c.Request.Body)
 	if err != nil {
 		applog.Warn(c.Request.Context(), "order pre-build read request body failed", zap.Error(err))
-		response.Error(c, http.StatusBadRequest, 40001, "读取请求体失败")
+		response.ErrorOf(c, bizerror.NewWith(bizerror.ErrBadRequest, bizerror.WithMessage("读取请求体失败")))
 		return
 	}
 	result, err := h.svc.Forward(c.Request.Context(), customerID, http.MethodPost, c.Request.URL.Path, "", body)
@@ -72,13 +73,13 @@ func (h *Handler) PreBuild(c *gin.Context) {
 func (h *Handler) Create(c *gin.Context) {
 	customerID, ok := h.customerID(c)
 	if !ok {
-		response.Error(c, http.StatusUnauthorized, 40100, "未登录或登录已过期")
+		response.ErrorOf(c, bizerror.ErrUnauthorized)
 		return
 	}
 	body, err := io.ReadAll(c.Request.Body)
 	if err != nil {
 		applog.Warn(c.Request.Context(), "order create read request body failed", zap.Error(err))
-		response.Error(c, http.StatusBadRequest, 40001, "读取请求体失败")
+		response.ErrorOf(c, bizerror.NewWith(bizerror.ErrBadRequest, bizerror.WithMessage("读取请求体失败")))
 		return
 	}
 	result, err := h.svc.Forward(c.Request.Context(), customerID, http.MethodPost, c.Request.URL.Path, "", body)
@@ -92,7 +93,7 @@ func (h *Handler) Create(c *gin.Context) {
 func (h *Handler) GetMonthOrders(c *gin.Context) {
 	customerID, ok := h.customerID(c)
 	if !ok {
-		response.Error(c, http.StatusUnauthorized, 40100, "未登录或登录已过期")
+		response.ErrorOf(c, bizerror.ErrUnauthorized)
 		return
 	}
 	result, err := h.svc.Forward(c.Request.Context(), customerID, http.MethodGet, c.Request.URL.Path, c.Request.URL.RawQuery, nil)
@@ -106,7 +107,7 @@ func (h *Handler) GetMonthOrders(c *gin.Context) {
 func (h *Handler) GetDetail(c *gin.Context) {
 	customerID, ok := h.customerID(c)
 	if !ok {
-		response.Error(c, http.StatusUnauthorized, 40100, "未登录或登录已过期")
+		response.ErrorOf(c, bizerror.ErrUnauthorized)
 		return
 	}
 	result, err := h.svc.Forward(c.Request.Context(), customerID, http.MethodGet, c.Request.URL.Path, c.Request.URL.RawQuery, nil)
@@ -120,7 +121,7 @@ func (h *Handler) GetDetail(c *gin.Context) {
 func (h *Handler) GetPaymentStatus(c *gin.Context) {
 	customerID, ok := h.customerID(c)
 	if !ok {
-		response.Error(c, http.StatusUnauthorized, 40100, "未登录或登录已过期")
+		response.ErrorOf(c, bizerror.ErrUnauthorized)
 		return
 	}
 	result, err := h.svc.Forward(c.Request.Context(), customerID, http.MethodGet, c.Request.URL.Path, c.Request.URL.RawQuery, nil)
@@ -134,7 +135,7 @@ func (h *Handler) GetPaymentStatus(c *gin.Context) {
 func (h *Handler) Cancel(c *gin.Context) {
 	customerID, ok := h.customerID(c)
 	if !ok {
-		response.Error(c, http.StatusUnauthorized, 40100, "未登录或登录已过期")
+		response.ErrorOf(c, bizerror.ErrUnauthorized)
 		return
 	}
 	result, err := h.svc.Forward(c.Request.Context(), customerID, http.MethodPost, c.Request.URL.Path, "", nil)
@@ -148,7 +149,7 @@ func (h *Handler) Cancel(c *gin.Context) {
 func (h *Handler) MarkReady(c *gin.Context) {
 	customerID, ok := h.customerID(c)
 	if !ok {
-		response.Error(c, http.StatusUnauthorized, 40100, "未登录或登录已过期")
+		response.ErrorOf(c, bizerror.ErrUnauthorized)
 		return
 	}
 	result, err := h.svc.Forward(c.Request.Context(), customerID, http.MethodPost, c.Request.URL.Path, "", nil)
@@ -162,7 +163,7 @@ func (h *Handler) MarkReady(c *gin.Context) {
 func (h *Handler) MarkCollected(c *gin.Context) {
 	customerID, ok := h.customerID(c)
 	if !ok {
-		response.Error(c, http.StatusUnauthorized, 40100, "未登录或登录已过期")
+		response.ErrorOf(c, bizerror.ErrUnauthorized)
 		return
 	}
 	result, err := h.svc.Forward(c.Request.Context(), customerID, http.MethodPost, c.Request.URL.Path, "", nil)

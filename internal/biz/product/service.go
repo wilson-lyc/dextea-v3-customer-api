@@ -24,7 +24,7 @@ func (s *Service) GetDetail(ctx context.Context, req GetProductDetailRequest) (*
 		return nil, err
 	}
 	if p == nil || p.Status != 1 {
-		return nil, bizerror.New(&bizerror.BizError{Code: 40400, Message: "资源不存在"}, "商品不存在")
+		return nil, bizerror.New(&bizerror.BizError{Code: 40400, Message: "资源不存在", Kind: bizerror.KindBusiness}, "商品不存在")
 	}
 
 	storeStatus := 0
