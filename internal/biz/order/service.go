@@ -12,6 +12,9 @@ import (
 	"github.com/dextea-v3/dextea-customer/api/internal/common/bizerror"
 	"github.com/dextea-v3/dextea-customer/api/internal/infra/config"
 	"github.com/dextea-v3/dextea-customer/api/internal/pkg/consts"
+
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/propagation"
 )
 
 const orderHTTPTimeout = 10 * time.Second
@@ -67,6 +70,10 @@ func (s *Service) Forward(ctx context.Context, customerID int64, method, path, r
 	}
 	// 透传已认证的顾客身份（固定头 X-Customer-Id），供下游据此做数据归属校验。
 	req.Header.Set(consts.CustomerIDHeader, strconv.FormatInt(customerID, 10))
+
+	// 将当前链路上下文（traceparent / trace id）注入请求头，转发给订单中台，
+	// 使其能继续同一链路，便于跨服务串联排查问题。
+	otel.GetTextMapPropagator().Inject(ctx, propagation.HeaderCarrier(req.Header))
 
 	return doForward(s.httpClient, req)
 }

@@ -9,6 +9,8 @@ import (
 
 	"github.com/go-sql-driver/mysql"
 	"github.com/joho/godotenv"
+
+	"github.com/dextea-v3/dextea-customer/api/internal/infra/nacos"
 )
 
 type Config struct {
@@ -46,41 +48,85 @@ type Config struct {
 	OrderServiceBaseURL string
 }
 
-func Load() *Config {
+// Load 加载配置。Nacos 为「强依赖」：必须先连上 Nacos 并成功拉取配置，
+// 否则返回 error，禁止以缺失配置的状态启动。本地环境变量优先级高于 Nacos 配置，
+// 便于在容器/本地环境对个别项做临时覆盖；两者皆缺时使用兜底默认值。
+func Load() (*Config, error) {
 	_ = godotenv.Load()
 
-	return &Config{
-		Port:        getEnv("PORT", "8080"),
-		Environment: getEnv("ENVIRONMENT", "development"),
-		ServiceName: getEnv("SERVICE_NAME", "dextea-customer-api"),
-
-		DBHost:      getEnv("DB_HOST", ""),
-		DBPort:      getEnv("DB_PORT", "3306"),
-		DBUser:      getEnv("DB_USER", ""),
-		DBPassword:  getEnv("DB_PASSWORD", ""),
-		DBName:      getEnv("DB_NAME", ""),
-		DBCharset:   getEnv("DB_CHARSET", "utf8mb4"),
-		DBParseTime: getEnvBool("DB_PARSE_TIME", true),
-		DBLoc:       getEnv("DB_LOC", "Local"),
-
-		RedisAddr:     getEnv("REDIS_ADDR", ""),
-		RedisPassword: getEnv("REDIS_PASSWORD", ""),
-		RedisDB:       getEnvInt("REDIS_DB", 0),
-
-		AlipayAppID:      getEnv("ALIPAY_APP_ID", ""),
-		AlipayPrivateKey: getEnv("ALIPAY_PRIVATE_KEY", ""),
-		AlipayPublicKey:  getEnv("ALIPAY_PUBLIC_KEY", ""),
-		AlipayGateway:    getEnv("ALIPAY_GATEWAY", ""),
-
-		AmapAPIKey: getEnv("AMAP_API_KEY", ""),
-
-		JWTSecret:      getEnv("JWT_SECRET", ""),
-		JWTExpireHours: getEnvInt("JWT_EXPIRE_HOURS", 168),
-
-		AuthWhitelist: getEnvList("AUTH_WHITELIST", []string{"/api/v1/customers/login"}),
-
-		OrderServiceBaseURL: getEnv("ORDER_SERVICE_BASE_URL", ""),
+	nacosValues, err := loadNacosConfig()
+	if err != nil {
+		return nil, err
 	}
+
+	l := newLookup(nacosValues)
+
+	return &Config{
+		Port:        l.get("PORT", "8080"),
+		Environment: l.get("ENVIRONMENT", "development"),
+		ServiceName: l.get("SERVICE_NAME", "dextea-customer-api"),
+
+		DBHost:      l.get("DB_HOST", ""),
+		DBPort:      l.get("DB_PORT", "3306"),
+		DBUser:      l.get("DB_USER", ""),
+		DBPassword:  l.get("DB_PASSWORD", ""),
+		DBName:      l.get("DB_NAME", ""),
+		DBCharset:   l.get("DB_CHARSET", "utf8mb4"),
+		DBParseTime: l.lookupBool("DB_PARSE_TIME", true),
+		DBLoc:       l.get("DB_LOC", "Local"),
+
+		RedisAddr:     l.get("REDIS_ADDR", ""),
+		RedisPassword: l.get("REDIS_PASSWORD", ""),
+		RedisDB:       l.lookupInt("REDIS_DB", 0),
+
+		AlipayAppID:      l.get("ALIPAY_APP_ID", ""),
+		AlipayPrivateKey: l.get("ALIPAY_PRIVATE_KEY", ""),
+		AlipayPublicKey:  l.get("ALIPAY_PUBLIC_KEY", ""),
+		AlipayGateway:    l.get("ALIPAY_GATEWAY", ""),
+
+		AmapAPIKey: l.get("AMAP_API_KEY", ""),
+
+		JWTSecret:      l.get("JWT_SECRET", ""),
+		JWTExpireHours: l.lookupInt("JWT_EXPIRE_HOURS", 168),
+
+		AuthWhitelist: l.lookupList("AUTH_WHITELIST", []string{"/api/v1/customers/login"}),
+
+		OrderServiceBaseURL: l.get("ORDER_SERVICE_BASE_URL", ""),
+	}, nil
+}
+
+// loadNacosConfig 建立 Nacos 客户端并拉取配置，返回 dotenv 风格的键值映射。
+// Nacos 不可达或 DataId 缺失/为空均返回 error（强依赖）。
+func loadNacosConfig() (map[string]string, error) {
+	nacosCfg := nacos.LoadFromEnv()
+	client, err := nacos.NewClient(nacosCfg)
+	if err != nil {
+		return nil, fmt.Errorf("nacos required: %w", err)
+	}
+	values, err := client.Load()
+	if err != nil {
+		return nil, fmt.Errorf("nacos required: %w", err)
+	}
+	return values, nil
+}
+
+// lookup 合并「本地环境变量 > Nacos 配置 > 默认值」的只读取值器。
+type lookup struct {
+	nacos map[string]string
+}
+
+func newLookup(nacosValues map[string]string) *lookup {
+	return &lookup{nacos: nacosValues}
+}
+
+func (l *lookup) get(key, fallback string) string {
+	if v, ok := os.LookupEnv(key); ok && v != "" {
+		return v
+	}
+	if v, ok := l.nacos[key]; ok {
+		return v
+	}
+	return fallback
 }
 
 func (c *Config) Validate() error {
@@ -166,24 +212,13 @@ func (c *Config) JWTExpireSeconds() int {
 	return c.JWTExpireHours * 3600
 }
 
-func getEnv(key, fallback string) string {
+func (l *lookup) lookupBool(key string, fallback bool) bool {
 	if v, ok := os.LookupEnv(key); ok && v != "" {
-		return v
-	}
-	return fallback
-}
-
-func getEnvInt(key string, fallback int) int {
-	if v, ok := os.LookupEnv(key); ok && v != "" {
-		if n, err := strconv.Atoi(v); err == nil {
-			return n
+		if b, err := strconv.ParseBool(v); err == nil {
+			return b
 		}
 	}
-	return fallback
-}
-
-func getEnvBool(key string, fallback bool) bool {
-	if v, ok := os.LookupEnv(key); ok && v != "" {
+	if v := l.nacos[key]; v != "" {
 		if b, err := strconv.ParseBool(v); err == nil {
 			return b
 		}
@@ -191,9 +226,23 @@ func getEnvBool(key string, fallback bool) bool {
 	return fallback
 }
 
-func getEnvList(key string, fallback []string) []string {
-	v, ok := os.LookupEnv(key)
-	if !ok || strings.TrimSpace(v) == "" {
+func (l *lookup) lookupInt(key string, fallback int) int {
+	if v, ok := os.LookupEnv(key); ok && v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			return n
+		}
+	}
+	if v := l.nacos[key]; v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			return n
+		}
+	}
+	return fallback
+}
+
+func (l *lookup) lookupList(key string, fallback []string) []string {
+	v := l.get(key, "")
+	if strings.TrimSpace(v) == "" {
 		return fallback
 	}
 	parts := strings.Split(v, ",")

@@ -2,6 +2,7 @@ package router
 
 import (
 	"github.com/gin-gonic/gin"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 
 	"github.com/dextea-v3/dextea-customer/api/internal/infra/config"
 	"github.com/dextea-v3/dextea-customer/api/internal/transport/middleware"
@@ -18,6 +19,9 @@ func Setup(cfg *config.Config, handlers ...server.Registerable) *gin.Engine {
 	}
 
 	r := gin.New()
+	// OTel 插桩：为每个入站请求创建 span，并从请求头提取上游 trace 上下文。
+	// Trace 中间件随后把当前链路 trace id 写入响应头 X-Trace-Id。
+	r.Use(otelgin.Middleware(cfg.ServiceName), middleware.Trace())
 	// Logger 记录访问日志；ExceptionInterceptor 作为全局异常拦截器，
 	// 替代 gin.Recovery：不仅能捕获 panic，还会把系统异常清洗为统一的对外提示。
 	r.Use(gin.Logger(), middleware.CORS(), middleware.ExceptionInterceptor(), middleware.Auth(cfg, cfg.AuthWhitelist))
