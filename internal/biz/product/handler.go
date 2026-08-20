@@ -1,10 +1,12 @@
 package product
 
 import (
-	"log"
+	"fmt"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 
+	applog "github.com/dextea-v3/dextea-customer/api/internal/infra/log"
 	"github.com/dextea-v3/dextea-customer/api/internal/common/bizerror"
 	"github.com/dextea-v3/dextea-customer/api/internal/common/response"
 )
@@ -26,7 +28,7 @@ func (h *Handler) Register(r *gin.Engine) {
 func (h *Handler) GetDetail(c *gin.Context) {
 	var req GetProductDetailRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
-		log.Printf("[WARN] product detail invalid request params: %+v", err)
+		applog.Warn(c.Request.Context(), "product detail invalid request params", zap.String("error", fmt.Sprintf("%+v", err)))
 		response.ErrorBiz(c, bizerror.New(&bizerror.BizError{Code: 40001, Message: "请求参数不合法"}))
 		return
 	}
@@ -42,7 +44,7 @@ func (h *Handler) GetDetail(c *gin.Context) {
 func (h *Handler) GetStoreStatus(c *gin.Context) {
 	var req GetProductStoreStatusRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		log.Printf("[WARN] product store-status invalid request params: %+v", err)
+		applog.Warn(c.Request.Context(), "product store-status invalid request params", zap.String("error", fmt.Sprintf("%+v", err)))
 		response.ErrorBiz(c, bizerror.New(&bizerror.BizError{Code: 40001, Message: "请求参数不合法"}))
 		return
 	}

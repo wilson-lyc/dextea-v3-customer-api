@@ -1,10 +1,12 @@
 package store
 
 import (
-	"log"
+	"fmt"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 
+	applog "github.com/dextea-v3/dextea-customer/api/internal/infra/log"
 	"github.com/dextea-v3/dextea-customer/api/internal/common/bizerror"
 	"github.com/dextea-v3/dextea-customer/api/internal/common/response"
 )
@@ -27,7 +29,7 @@ func (h *Handler) Register(r *gin.Engine) {
 func (h *Handler) Nearby(c *gin.Context) {
 	var req NearbyRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
-		log.Printf("[WARN] store nearby invalid request params: %+v", err)
+		applog.Warn(c.Request.Context(), "store nearby invalid request params", zap.String("error", fmt.Sprintf("%+v", err)))
 		response.ErrorBiz(c, bizerror.New(&bizerror.BizError{Code: 40001, Message: "请求参数不合法"}))
 		return
 	}
@@ -43,7 +45,7 @@ func (h *Handler) Nearby(c *gin.Context) {
 func (h *Handler) Search(c *gin.Context) {
 	var req SearchRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
-		log.Printf("[WARN] store search invalid request params: %+v", err)
+		applog.Warn(c.Request.Context(), "store search invalid request params", zap.String("error", fmt.Sprintf("%+v", err)))
 		response.ErrorBiz(c, bizerror.New(&bizerror.BizError{Code: 40001, Message: "请求参数不合法"}))
 		return
 	}
@@ -59,7 +61,7 @@ func (h *Handler) Search(c *gin.Context) {
 func (h *Handler) GetDetail(c *gin.Context) {
 	var req GetDetailRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
-		log.Printf("[WARN] store detail invalid request params: %+v", err)
+		applog.Warn(c.Request.Context(), "store detail invalid request params", zap.String("error", fmt.Sprintf("%+v", err)))
 		response.ErrorBiz(c, bizerror.New(&bizerror.BizError{Code: 40001, Message: "请求参数不合法"}))
 		return
 	}

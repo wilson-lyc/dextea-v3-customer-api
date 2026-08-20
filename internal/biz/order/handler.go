@@ -2,13 +2,14 @@ package order
 
 import (
 	"io"
-	"log"
 	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 
 	"github.com/dextea-v3/dextea-customer/api/internal/common/response"
+	applog "github.com/dextea-v3/dextea-customer/api/internal/infra/log"
 	"github.com/dextea-v3/dextea-customer/api/internal/pkg/consts"
 )
 
@@ -56,7 +57,7 @@ func (h *Handler) PreBuild(c *gin.Context) {
 	}
 	body, err := io.ReadAll(c.Request.Body)
 	if err != nil {
-		log.Printf("[WARN] order pre-build read request body failed: %+v", err)
+		applog.Warn(c.Request.Context(), "order pre-build read request body failed", zap.Error(err))
 		response.Error(c, http.StatusBadRequest, 40001, "读取请求体失败")
 		return
 	}
@@ -76,7 +77,7 @@ func (h *Handler) Create(c *gin.Context) {
 	}
 	body, err := io.ReadAll(c.Request.Body)
 	if err != nil {
-		log.Printf("[WARN] order create read request body failed: %+v", err)
+		applog.Warn(c.Request.Context(), "order create read request body failed", zap.Error(err))
 		response.Error(c, http.StatusBadRequest, 40001, "读取请求体失败")
 		return
 	}

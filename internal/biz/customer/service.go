@@ -2,8 +2,10 @@ package customer
 
 import (
 	"context"
-	"log"
 
+	"go.uber.org/zap"
+
+	applog "github.com/dextea-v3/dextea-customer/api/internal/infra/log"
 	"github.com/dextea-v3/dextea-customer/api/internal/infra/alipay"
 	"github.com/dextea-v3/dextea-customer/api/internal/common/bizerror"
 	"github.com/dextea-v3/dextea-customer/api/internal/infra/config"
@@ -83,7 +85,7 @@ func (s *Service) exchangeAlipayOpenID(ctx context.Context, code string) (string
 	}
 	openID, err := s.alipay.ExchangeCode(ctx, code)
 	if err != nil {
-		log.Printf("[ERROR] 支付宝换取 openid 失败: %+v", err)
+		applog.Error(ctx, "支付宝换取 openid 失败", zap.String("error", err.Error()))
 		return "", bizerror.New(ErrAlipayAuthFailed)
 	}
 	return openID, nil

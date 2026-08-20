@@ -1,11 +1,13 @@
 package response
 
 import (
-	"log"
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 
+	applog "github.com/dextea-v3/dextea-customer/api/internal/infra/log"
 	"github.com/dextea-v3/dextea-customer/api/internal/common/bizerror"
 )
 
@@ -47,6 +49,6 @@ func ErrorOf(c *gin.Context, err error) {
 		ErrorBiz(c, b)
 		return
 	}
-	log.Printf("[ERROR] handler error: %+v", err)
+	applog.Error(c.Request.Context(), "handler error", zap.String("error", fmt.Sprintf("%+v", err)))
 	Error(c, http.StatusInternalServerError, bizerror.ErrInternal.Code, "服务异常，请稍后重试")
 }

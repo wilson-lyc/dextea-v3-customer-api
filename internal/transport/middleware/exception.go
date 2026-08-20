@@ -4,11 +4,12 @@ package middleware
 
 import (
 	"fmt"
-	"log"
 	"runtime/debug"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 
+	applog "github.com/dextea-v3/dextea-customer/api/internal/infra/log"
 	"github.com/dextea-v3/dextea-customer/api/internal/common/response"
 )
 
@@ -27,8 +28,10 @@ func ExceptionInterceptor() gin.HandlerFunc {
 				err := recoverToError(r)
 
 				// 内部记录真实错误与堆栈，前端看不到。
-				// 用 %+v 输出错误链，便于排查根因。
-				log.Printf("[PANIC] recovered: %+v\n%s", err, debug.Stack())
+				// 日志自动携带当前请求的 trace_id，可在后端按链路定位。
+				applog.Error(c.Request.Context(), "panic recovered",
+					zap.String("error", fmt.Sprintf("%+v", err)),
+					zap.String("stack", string(debug.Stack())))
 
 				// 若响应尚未写出（如 handler 中途 panic），则写出统一的错误响应；
 				// 已写出则不再覆盖，避免重复 WriteHeader 报错。
