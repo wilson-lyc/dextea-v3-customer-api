@@ -11,6 +11,7 @@ import (
 
 	"github.com/dextea-v3/dextea-customer/api/internal/common/bizerror"
 	"github.com/dextea-v3/dextea-customer/api/internal/infra/config"
+	"github.com/dextea-v3/dextea-customer/api/internal/infra/nacos"
 	"github.com/dextea-v3/dextea-customer/api/internal/pkg/consts"
 
 	"go.opentelemetry.io/otel"
@@ -28,16 +29,42 @@ type ForwardResult struct {
 
 // Service 负责把 Order 模块中已与下游一一对应的接口请求转发到 Java 订单服务。
 // 自身不执行业务逻辑，仅完成统一的身份透传（从 X-Customer-Id 头）与请求转发。
+//
+// 寻址优先级：配置了 ORDER_SERVICE_NAME 时走 Nacos 注册中心动态服务发现（推荐，
+// 地址变更无需重启）；否则回退到 ORDER_SERVICE_BASE_URL 静态地址。
 type Service struct {
 	httpClient *http.Client
-	baseURL    string
+	baseURL    string // 静态兜底地址
+	resolver   *nacos.Resolver
 }
 
 func NewService(cfg *config.Config) *Service {
-	return &Service{
+	svc := &Service{
 		httpClient: &http.Client{Timeout: orderHTTPTimeout},
 		baseURL:    strings.TrimRight(cfg.OrderServiceBaseURL, "/"),
 	}
+	// 优先建立 Nacos 服务发现解析器：配置服务名即可，无需直连地址。
+	if cfg.OrderServiceName != "" {
+		namingClient, err := nacos.NewNamingClient(cfg.NacosConfig())
+		if err == nil {
+			svc.resolver = nacos.NewResolver(namingClient, cfg.OrderServiceName, cfg.OrderServiceGroup)
+		}
+	}
+	return svc
+}
+
+// resolveBaseURL 动态解析订单服务 baseURL。
+// 服务发现优先，失败时回退静态地址；两者皆不可用时报错。
+func (s *Service) resolveBaseURL() (string, error) {
+	if s.resolver != nil {
+		if addr, err := s.resolver.Resolve(); err == nil {
+			return "http://" + strings.TrimRight(addr, "/"), nil
+		}
+	}
+	if s.baseURL != "" {
+		return s.baseURL, nil
+	}
+	return "", bizerror.New(ErrOrderServiceNotConfigured)
 }
 
 // Forward 透传单个已与下游一一对应的接口请求到 Java 订单服务。
@@ -47,11 +74,12 @@ func NewService(cfg *config.Config) *Service {
 // 顾客身份通过固定头 X-Customer-Id 透传（已由全局 Auth 中间件解析并写入请求头），
 // 供下游据此做数据归属校验，不再从请求体覆盖顾客标识字段。
 func (s *Service) Forward(ctx context.Context, customerID int64, method, path, rawQuery string, body []byte) (*ForwardResult, error) {
-	if s.baseURL == "" {
-		return nil, bizerror.New(ErrOrderServiceNotConfigured)
+	baseURL, err := s.resolveBaseURL()
+	if err != nil {
+		return nil, err
 	}
 
-	target := s.baseURL + stripAPIPrefix(path)
+	target := baseURL + stripAPIPrefix(path)
 	if rawQuery != "" {
 		target += "?" + rawQuery
 	}

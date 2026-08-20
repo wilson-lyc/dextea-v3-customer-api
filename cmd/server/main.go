@@ -4,9 +4,11 @@ import (
 	"context"
 	"log"
 	"net/http"
+	"strconv"
 
 	"github.com/dextea-v3/dextea-customer/api/internal/biz"
 	"github.com/dextea-v3/dextea-customer/api/internal/infra/config"
+	"github.com/dextea-v3/dextea-customer/api/internal/infra/nacos"
 	"github.com/dextea-v3/dextea-customer/api/internal/infra/otel"
 )
 
@@ -14,7 +16,7 @@ import (
 var serviceVersion = "unknown"
 
 func main() {
-	// 加载配置（Nacos 为强依赖，不可达或缺失配置将直接启动失败）
+	// 加载配置（Nacos 配置中心为软依赖；缺省时回退 .env / 默认值）
 	cfg, err := config.Load()
 	if err != nil {
 		log.Fatalf("%s", err.Error())
@@ -52,6 +54,32 @@ func main() {
 	srv := &http.Server{
 		Addr:    addr,
 		Handler: r,
+	}
+
+	// 本服务向 Nacos 注册中心注册自身。
+	// 「是否配置 Nacos」= env 中存在连接参数(NACOS_IP/PORT) 且 Nacos 能正常连接：
+	//   - env 无连接参数，或 Nacos 不可达 → 视为未配置，本服务不注册，纯 .env 运行。
+	//   - env 有连接参数且连接成功 → 注册本服务，关停时主动注销。
+	listenPort, _ := strconv.ParseUint(cfg.Port, 10, 64)
+	registrar, regErr := nacos.NewRegistrar(cfg.NacosConfig(), cfg.ServiceName, listenPort, map[string]string{
+		"version": serviceVersion,
+	})
+	if regErr != nil {
+		log.Printf("[WARN] nacos unavailable or misconfigured, treat as not-configured and skip self-registration: %v", regErr)
+	} else if registrar != nil {
+		if err := registrar.Register(); err != nil {
+			// 连接参数在 env 中，但 Nacos 实际不可达：等同未配置，回退 .env，不注册。
+			log.Printf("[WARN] nacos not reachable, treat as not-configured and skip self-registration: %v", err)
+		} else {
+			log.Printf("[INFO] registered %s (%s) to nacos", cfg.ServiceName, registrar.Addr())
+			defer func() {
+				if err := registrar.Deregister(); err != nil {
+					log.Printf("[WARN] deregister from nacos failed: %v", err)
+				}
+			}()
+		}
+	} else {
+		log.Printf("[INFO] nacos not configured in env, running without self-registration (pure .env mode)")
 	}
 
 	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {

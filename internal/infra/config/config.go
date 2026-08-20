@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -46,22 +47,40 @@ type Config struct {
 
 	// 订单模块请求转发路径
 	OrderServiceBaseURL string
+
+	// 订单服务在 Nacos 注册中心注册的服务名（用于动态服务发现）。
+	// 配置后，调用订单服务时实时从 Nacos 拉取健康实例地址，而非写死地址。
+	// 与 OrderServiceBaseURL 同时存在时，以服务发现优先；两者皆缺则启动自检报错。
+	OrderServiceName string
+	// 订单服务在 Nacos 注册中心所属分组，为空时使用默认分组（同 Nacos 配置分组）。
+	OrderServiceGroup string
+
+	// nacosRaw 保存 Nacos 连接参数，供业务层（如订单服务发现）构造 naming 客户端。
+	nacosRaw nacos.Config
 }
 
-// Load 加载配置。Nacos 为「强依赖」：必须先连上 Nacos 并成功拉取配置，
-// 否则返回 error，禁止以缺失配置的状态启动。本地环境变量优先级高于 Nacos 配置，
-// 便于在容器/本地环境对个别项做临时覆盖；两者皆缺时使用兜底默认值。
+// Load 加载配置。
+//
+// 是否为「Nacos 模式」由是否配置 Nacos 服务端地址(NACOS_IP/PORT) 决定：
+//   - 未配置 Nacos：既不在 Nacos 注册本服务，也不读取 Nacos 配置，纯 .env / 默认值运行。
+//   - 已配置 Nacos：本服务会注册到 Nacos（见 main）；并若同时配置了 NACOS_DATA_ID，
+//     则以「本地环境变量(.env) > Nacos 配置 > 默认值」的优先级合并配置（env 优先）。
+//
+// Nacos 配置中心不可达或拉取失败时不再阻塞启动（软依赖，仅告警），回退到 .env / 默认值。
 func Load() (*Config, error) {
 	_ = godotenv.Load()
 
 	nacosValues, err := loadNacosConfig()
 	if err != nil {
-		return nil, err
+		// 配置中心为软依赖：拉取失败仅告警，不中断启动。
+		log.Printf("[WARN] nacos config-center unavailable, fall back to .env / defaults: %v", err)
+		nacosValues = nil
 	}
 
 	l := newLookup(nacosValues)
 
 	return &Config{
+		nacosRaw: nacos.LoadFromEnv(),
 		Port:        l.get("PORT", "8080"),
 		Environment: l.get("ENVIRONMENT", "development"),
 		ServiceName: l.get("SERVICE_NAME", "dextea-customer-api"),
@@ -92,20 +111,31 @@ func Load() (*Config, error) {
 		AuthWhitelist: l.lookupList("AUTH_WHITELIST", []string{"/api/v1/customers/login"}),
 
 		OrderServiceBaseURL: l.get("ORDER_SERVICE_BASE_URL", ""),
+		OrderServiceName:    l.get("ORDER_SERVICE_NAME", ""),
+		OrderServiceGroup:   l.get("ORDER_SERVICE_GROUP", ""),
 	}, nil
 }
 
-// loadNacosConfig 建立 Nacos 客户端并拉取配置，返回 dotenv 风格的键值映射。
-// Nacos 不可达或 DataId 缺失/为空均返回 error（强依赖）。
+// loadNacosConfig 建立 Nacos 配置中心客户端并拉取配置，返回 dotenv 风格的键值映射。
+//
+// 启用条件（与「本服务是否注册到 Nacos」共用同一开关）：必须同时配置了 Nacos 服务
+// 端地址(NACOS_IP/PORT) 与 配置项(NACOS_DATA_ID)。也即「没有配置 Nacos 就不读 Nacos
+// 配置」，此时返回 (nil, nil)，调用方完全依赖 .env 与默认值。
+// 启用后若客户端创建或拉取失败，返回 error，由 Load() 以软依赖方式降级处理（不阻断启动）。
 func loadNacosConfig() (map[string]string, error) {
 	nacosCfg := nacos.LoadFromEnv()
+	// 未配置 Nacos 服务端地址（env 中无 NACOS_IP/PORT）或未指定 DataId：
+	// 视为未配置 Nacos，不读取其配置，直接跳过。
+	if !nacosCfg.HasConnectionParams() || nacosCfg.DataID == "" {
+		return nil, nil
+	}
 	client, err := nacos.NewClient(nacosCfg)
 	if err != nil {
-		return nil, fmt.Errorf("nacos required: %w", err)
+		return nil, fmt.Errorf("nacos config-center init: %w", err)
 	}
 	values, err := client.Load()
 	if err != nil {
-		return nil, fmt.Errorf("nacos required: %w", err)
+		return nil, fmt.Errorf("nacos config-center load: %w", err)
 	}
 	return values, nil
 }
@@ -176,6 +206,13 @@ func (c *Config) Validate() error {
 		b.WriteString("\n    - JWT_SECRET")
 	}
 
+	if c.OrderServiceName == "" && c.OrderServiceBaseURL == "" {
+		hasErr = true
+		b.WriteString("\n  [Order] order service target is not configured, please add ONE of the following in .env or environment variables:")
+		b.WriteString("\n    - ORDER_SERVICE_NAME (preferred, dynamic discovery via Nacos registry)")
+		b.WriteString("\n    - ORDER_SERVICE_BASE_URL (fallback, static base URL)")
+	}
+
 	if !hasErr {
 		return nil
 	}
@@ -210,6 +247,11 @@ func (c *Config) DatabaseDSN() string {
 
 func (c *Config) JWTExpireSeconds() int {
 	return c.JWTExpireHours * 3600
+}
+
+// NacosConfig 返回 Nacos 连接参数，供需要注册中心能力的业务层复用同一连接配置。
+func (c *Config) NacosConfig() nacos.Config {
+	return c.nacosRaw
 }
 
 func (l *lookup) lookupBool(key string, fallback bool) bool {
