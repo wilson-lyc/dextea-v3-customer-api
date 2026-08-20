@@ -14,7 +14,7 @@ import (
 	"github.com/redis/go-redis/v9"
 
 	"github.com/dextea-v3/dextea-customer/api/internal/common/bizerror"
-	"github.com/dextea-v3/dextea-customer/api/internal/config"
+	"github.com/dextea-v3/dextea-customer/api/internal/infra/config"
 )
 
 const (

@@ -10,19 +10,11 @@ import (
 	"time"
 
 	"github.com/dextea-v3/dextea-customer/api/internal/common/bizerror"
-	"github.com/dextea-v3/dextea-customer/api/internal/config"
+	"github.com/dextea-v3/dextea-customer/api/internal/infra/config"
+	"github.com/dextea-v3/dextea-customer/api/internal/pkg/consts"
 )
 
 const orderHTTPTimeout = 10 * time.Second
-
-// goAPIPrefix 是 Go 服务对外挂载 Order 模块的 API 前缀。
-// 转发时需将该前缀从原始请求路径中剥离，再拼接到下游基础地址之后，
-// 否则会与 ORDER_SERVICE_BASE_URL 中已包含的相同前缀重复。
-const goAPIPrefix = "/api/v1"
-
-// CustomerIDHeader 透传给下游 Java 订单服务的固定顾客标识头。
-// 其值由全局 Auth 中间件从 token 解析并写入，Order 模块原样透传，自身不再解析 token。
-const CustomerIDHeader = "X-Customer-Id"
 
 // ForwardResult 封装下游订单服务返回的原始响应，由 handler 透传写出。
 type ForwardResult struct {
@@ -74,7 +66,7 @@ func (s *Service) Forward(ctx context.Context, customerID int64, method, path, r
 		req.Header.Set("Content-Type", "application/json")
 	}
 	// 透传已认证的顾客身份（固定头 X-Customer-Id），供下游据此做数据归属校验。
-	req.Header.Set(CustomerIDHeader, strconv.FormatInt(customerID, 10))
+	req.Header.Set(consts.CustomerIDHeader, strconv.FormatInt(customerID, 10))
 
 	return doForward(s.httpClient, req)
 }
@@ -85,10 +77,10 @@ func (s *Service) Forward(ctx context.Context, customerID int64, method, path, r
 func stripAPIPrefix(path string) string {
 	p := path
 	switch {
-	case p == goAPIPrefix:
+	case p == consts.APIPrefixV1:
 		return "/"
-	case strings.HasPrefix(p, goAPIPrefix+"/"):
-		p = strings.TrimPrefix(p, goAPIPrefix)
+	case strings.HasPrefix(p, consts.APIPrefixV1+"/"):
+		p = strings.TrimPrefix(p, consts.APIPrefixV1)
 	}
 	if p == "" {
 		return "/"

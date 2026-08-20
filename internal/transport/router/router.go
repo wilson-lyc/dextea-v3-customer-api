@@ -3,9 +3,9 @@ package router
 import (
 	"github.com/gin-gonic/gin"
 
-	"github.com/dextea-v3/dextea-customer/api/internal/config"
-	"github.com/dextea-v3/dextea-customer/api/internal/middleware"
-	"github.com/dextea-v3/dextea-customer/api/internal/server"
+	"github.com/dextea-v3/dextea-customer/api/internal/infra/config"
+	"github.com/dextea-v3/dextea-customer/api/internal/transport/middleware"
+	"github.com/dextea-v3/dextea-customer/api/internal/transport/server"
 )
 
 // Setup 构建并返回配置好的 gin 引擎。

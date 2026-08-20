@@ -7,6 +7,7 @@ import (
 
 	"github.com/dextea-v3/dextea-customer/api/internal/common/bizerror"
 	"github.com/dextea-v3/dextea-customer/api/internal/common/response"
+	"github.com/dextea-v3/dextea-customer/api/internal/pkg/consts"
 )
 
 type Handler struct {
@@ -18,7 +19,7 @@ func NewHandler(svc *Service) *Handler {
 }
 
 func (h *Handler) Register(r *gin.Engine) {
-	v1 := r.Group("/api/v1")
+	v1 := r.Group(consts.APIPrefixV1)
 	v1.POST("/customers/login", h.Login)
 }
 

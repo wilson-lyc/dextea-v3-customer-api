@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	"github.com/dextea-v3/dextea-customer/api/internal/biz"
-	"github.com/dextea-v3/dextea-customer/api/internal/config"
+	"github.com/dextea-v3/dextea-customer/api/internal/infra/config"
 )
 
 func main() {

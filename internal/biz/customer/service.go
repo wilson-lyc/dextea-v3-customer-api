@@ -4,10 +4,10 @@ import (
 	"context"
 	"log"
 
-	"github.com/dextea-v3/dextea-customer/api/internal/alipay"
+	"github.com/dextea-v3/dextea-customer/api/internal/infra/alipay"
 	"github.com/dextea-v3/dextea-customer/api/internal/common/bizerror"
-	"github.com/dextea-v3/dextea-customer/api/internal/config"
-	"github.com/dextea-v3/dextea-customer/api/internal/jwt"
+	"github.com/dextea-v3/dextea-customer/api/internal/infra/config"
+	"github.com/dextea-v3/dextea-customer/api/internal/infra/jwt"
 	"github.com/redis/go-redis/v9"
 )
 

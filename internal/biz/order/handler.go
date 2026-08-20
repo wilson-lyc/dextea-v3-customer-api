@@ -9,6 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/dextea-v3/dextea-customer/api/internal/common/response"
+	"github.com/dextea-v3/dextea-customer/api/internal/pkg/consts"
 )
 
 type Handler struct {
@@ -172,7 +173,7 @@ func (h *Handler) MarkCollected(c *gin.Context) {
 }
 
 func (h *Handler) customerID(c *gin.Context) (int64, bool) {
-	raw := c.GetHeader(CustomerIDHeader)
+	raw := c.GetHeader(consts.CustomerIDHeader)
 	if raw == "" {
 		return 0, false
 	}

@@ -13,10 +13,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/dextea-v3/dextea-customer/api/internal/infra/config"
 )
 
 const (
@@ -66,6 +69,21 @@ func New(appID, privateKey, alipayPublicKey string, isProduction bool) (*Client,
 	}
 
 	return c, nil
+}
+
+// NewFromConfig 从配置构建支付宝客户端；当 AppID 或私钥未配置时返回 nil（表示不可用），
+// 不阻塞启动，允许降级运行。初始化失败仅记录告警日志，不向上抛出。
+func NewFromConfig(cfg *config.Config) *Client {
+	if cfg.AlipayAppID == "" || cfg.AlipayPrivateKey == "" {
+		return nil
+	}
+	isProduction := cfg.AlipayGateway == "" || cfg.AlipayGateway == "https://openapi.alipay.com/gateway.do"
+	client, err := New(cfg.AlipayAppID, cfg.AlipayPrivateKey, cfg.AlipayPublicKey, isProduction)
+	if err != nil {
+		log.Printf("[WARN] 支付宝客户端初始化失败，支付宝登录将不可用: %v", err)
+		return nil
+	}
+	return client
 }
 
 func (c *Client) ExchangeCode(ctx context.Context, code string) (string, error) {
