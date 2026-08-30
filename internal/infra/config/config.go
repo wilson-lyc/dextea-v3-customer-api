@@ -78,7 +78,7 @@ func Load() (*Config, error) {
 		DBParseTime: l.lookupBool("DB_PARSE_TIME", true),
 		DBLoc:       l.get("DB_LOC", "Local"),
 
-		RedisAddr:     l.get("REDIS_ADDR", ""),
+		RedisAddr:     l.get("REDIS_ADDR", "127.0.0.1:6379"),
 		RedisPassword: l.get("REDIS_PASSWORD", ""),
 		RedisDB:       l.lookupInt("REDIS_DB", 0),
 
