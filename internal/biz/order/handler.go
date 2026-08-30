@@ -39,15 +39,6 @@ func (h *Handler) Register(r *gin.Engine) {
 
 	// 获取订单支付状态
 	g.GET("/:orderId/payment-status", h.GetPaymentStatus)
-
-	// 取消订单
-	g.POST("/:orderId/cancel", h.Cancel)
-
-	// 标记订单制作完成
-	g.POST("/:orderId/ready", h.MarkReady)
-
-	// 标记订单已取餐
-	g.POST("/:orderId/collect", h.MarkCollected)
 }
 
 func (h *Handler) PreBuild(c *gin.Context) {
@@ -125,48 +116,6 @@ func (h *Handler) GetPaymentStatus(c *gin.Context) {
 		return
 	}
 	result, err := h.svc.Forward(c.Request.Context(), customerID, http.MethodGet, c.Request.URL.Path, c.Request.URL.RawQuery, nil)
-	if err != nil {
-		response.ErrorOf(c, err)
-		return
-	}
-	c.Data(result.StatusCode, result.ContentType, result.Body)
-}
-
-func (h *Handler) Cancel(c *gin.Context) {
-	customerID, ok := h.customerID(c)
-	if !ok {
-		response.ErrorOf(c, bizerror.ErrUnauthorized)
-		return
-	}
-	result, err := h.svc.Forward(c.Request.Context(), customerID, http.MethodPost, c.Request.URL.Path, "", nil)
-	if err != nil {
-		response.ErrorOf(c, err)
-		return
-	}
-	c.Data(result.StatusCode, result.ContentType, result.Body)
-}
-
-func (h *Handler) MarkReady(c *gin.Context) {
-	customerID, ok := h.customerID(c)
-	if !ok {
-		response.ErrorOf(c, bizerror.ErrUnauthorized)
-		return
-	}
-	result, err := h.svc.Forward(c.Request.Context(), customerID, http.MethodPost, c.Request.URL.Path, "", nil)
-	if err != nil {
-		response.ErrorOf(c, err)
-		return
-	}
-	c.Data(result.StatusCode, result.ContentType, result.Body)
-}
-
-func (h *Handler) MarkCollected(c *gin.Context) {
-	customerID, ok := h.customerID(c)
-	if !ok {
-		response.ErrorOf(c, bizerror.ErrUnauthorized)
-		return
-	}
-	result, err := h.svc.Forward(c.Request.Context(), customerID, http.MethodPost, c.Request.URL.Path, "", nil)
 	if err != nil {
 		response.ErrorOf(c, err)
 		return

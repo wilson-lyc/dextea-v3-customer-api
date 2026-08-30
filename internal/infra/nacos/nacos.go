@@ -167,11 +167,8 @@ func LoadFromEnv() Config {
 		Port:       uint64(atoiDefault(os.Getenv("NACOS_PORT"), 0)),
 		NamespaceID: os.Getenv("NACOS_NAMESPACE_ID"),
 		Group:       getenvDefault("NACOS_GROUP", "DEFAULT_GROUP"),
-		DataID:      os.Getenv("NACOS_DATA_ID"),
 		Username:    os.Getenv("NACOS_USERNAME"),
 		Password:    os.Getenv("NACOS_PASSWORD"),
-		TimeoutMs:   uint64(atoiDefault(os.Getenv("NACOS_TIMEOUT_MS"), 5000)),
-		LogLevel:    getenvDefault("NACOS_LOG_LEVEL", "info"),
 	}
 }
 
