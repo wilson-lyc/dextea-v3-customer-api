@@ -23,7 +23,7 @@ import (
 
 // Config 描述连接 Nacos 所需的参数，均由环境变量注入。
 type Config struct {
-	IpAddr      string // Nacos 服务地址（必填）
+	Host        string // Nacos 服务地址（必填）
 	Port        uint64 // Nacos 服务端口（必填）
 	NamespaceID string // 命名空间 ID，public 命名空间填空字符串
 	Group       string // 配置分组（必填）
@@ -38,8 +38,8 @@ type Config struct {
 // 最小参数：服务地址与端口。命名空间、分组、DataId 等按需由各能力自行校验。
 func (c Config) ValidateConnection() error {
 	var miss []string
-	if c.IpAddr == "" {
-		miss = append(miss, "NACOS_IP")
+	if c.Host == "" {
+		miss = append(miss, "NACOS_HOST")
 	}
 	if c.Port == 0 {
 		miss = append(miss, "NACOS_PORT")
@@ -50,7 +50,7 @@ func (c Config) ValidateConnection() error {
 	return nil
 }
 
-// HasConnectionParams 判断 env 中是否提供了 Nacos 连接参数（NACOS_IP/PORT）。
+// HasConnectionParams 判断 env 中是否提供了 Nacos 连接参数（NACOS_HOST/PORT）。
 // 这是「是否配置 Nacos」的必要前提；最终是否生效还需 Nacos 能正常连接。
 func (c Config) HasConnectionParams() bool {
 	return c.ValidateConnection() == nil
@@ -106,7 +106,7 @@ func NewClient(cfg Config) (*Client, error) {
 		constant.WithPassword(cfg.Password),
 	)
 	serverConfigs := []constant.ServerConfig{
-		*constant.NewServerConfig(cfg.IpAddr, cfg.Port, constant.WithScheme("http")),
+		*constant.NewServerConfig(cfg.Host, cfg.Port, constant.WithScheme("http")),
 	}
 
 	inner, err := clients.NewConfigClient(vo.NacosClientParam{
@@ -163,7 +163,7 @@ func parseDotenv(content string) map[string]string {
 // LoadFromEnv 从环境变量读取 Nacos 连接配置。
 func LoadFromEnv() Config {
 	return Config{
-		IpAddr:      os.Getenv("NACOS_IP"),
+		Host:        os.Getenv("NACOS_HOST"),
 		Port:       uint64(atoiDefault(os.Getenv("NACOS_PORT"), 0)),
 		NamespaceID: os.Getenv("NACOS_NAMESPACE_ID"),
 		Group:       getenvDefault("NACOS_GROUP", "DEFAULT_GROUP"),
@@ -223,7 +223,7 @@ func NewNamingClient(cfg Config) (*NamingClient, error) {
 		constant.WithPassword(cfg.Password),
 	)
 	serverConfigs := []constant.ServerConfig{
-		*constant.NewServerConfig(cfg.IpAddr, cfg.Port, constant.WithScheme("http")),
+		*constant.NewServerConfig(cfg.Host, cfg.Port, constant.WithScheme("http")),
 	}
 
 	inner, err := clients.NewNamingClient(vo.NacosClientParam{
@@ -387,7 +387,7 @@ type Registrar struct {
 // NewRegistrar 构造本服务注册器。
 //
 // 「是否配置 Nacos」由 env 中的连接参数决定：
-//   - env 未提供 NACOS_IP/PORT（或 name 为空）→ 视为未配置，返回 (nil, nil)。
+//   - env 未提供 NACOS_HOST/PORT（或 name 为空）→ 视为未配置，返回 (nil, nil)。
 //   - env 提供了连接参数 → 构造 naming 客户端，准备注册；随后 Register() 会真正
 //     连接 Nacos，只有连接成功才算「配了 Nacos」并完成注册。连接失败（Nacos 不可达）
 //     等同未配置，由调用方按「回退 .env、不注册」处理。

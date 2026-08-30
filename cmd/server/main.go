@@ -57,7 +57,7 @@ func main() {
 	}
 
 	// 本服务向 Nacos 注册中心注册自身。
-	// 「是否配置 Nacos」= env 中存在连接参数(NACOS_IP/PORT) 且 Nacos 能正常连接：
+	// 「是否配置 Nacos」= env 中存在连接参数(NACOS_HOST/PORT) 且 Nacos 能正常连接：
 	//   - env 无连接参数，或 Nacos 不可达 → 视为未配置，本服务不注册，纯 .env 运行。
 	//   - env 有连接参数且连接成功 → 注册本服务，关停时主动注销。
 	listenPort, _ := strconv.ParseUint(cfg.Port, 10, 64)

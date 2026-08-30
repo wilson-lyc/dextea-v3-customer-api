@@ -190,7 +190,7 @@ func (c *Config) Validate() error {
 		}
 		if err := c.NacosConfig().ValidateConnection(); err != nil {
 			hasErr = true
-			b.WriteString("\n  [Order] ORDER_SERVICE_MODE=nacos requires Nacos connection params (NACOS_IP/NACOS_PORT)")
+			b.WriteString("\n  [Order] ORDER_SERVICE_MODE=nacos requires Nacos connection params (NACOS_HOST/NACOS_PORT)")
 		}
 	default:
 		if c.OrderServiceBaseURL == "" {
