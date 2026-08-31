@@ -149,9 +149,11 @@ func (s *Service) doForward(req *http.Request) (*ForwardResult, error) {
 
 func buildDownstreamPath(localPath string) string {
 	localPrefix := consts.APIPrefixV1 + "/orders"
+	// rel 为空时直接返回前缀本身：下游路由不匹配尾斜杠，
+	// 拼成 "/api/v1/customer/orders/" 会被下游判为系统错误（50000）。
 	rel := strings.TrimPrefix(localPath, localPrefix)
 	if rel == "" {
-		rel = "/"
+		return consts.DownstreamAPIPrefix
 	}
 	return consts.DownstreamAPIPrefix + rel
 }
