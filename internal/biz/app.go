@@ -5,13 +5,13 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/dextea-v3/dextea-customer/api/internal/infra/alipay"
 	"github.com/dextea-v3/dextea-customer/api/internal/biz/area"
 	"github.com/dextea-v3/dextea-customer/api/internal/biz/customer"
 	"github.com/dextea-v3/dextea-customer/api/internal/biz/menu"
 	"github.com/dextea-v3/dextea-customer/api/internal/biz/order"
 	"github.com/dextea-v3/dextea-customer/api/internal/biz/product"
 	"github.com/dextea-v3/dextea-customer/api/internal/biz/store"
+	"github.com/dextea-v3/dextea-customer/api/internal/infra/alipay"
 	"github.com/dextea-v3/dextea-customer/api/internal/infra/config"
 	"github.com/dextea-v3/dextea-customer/api/internal/infra/mysql"
 	"github.com/dextea-v3/dextea-customer/api/internal/infra/redis"
@@ -39,12 +39,20 @@ func New(cfg *config.Config) (*gin.Engine, func(), error) {
 	alipayClient := alipay.NewFromConfig(cfg)
 
 	// 业务模块注册
+	productHandler, err := product.NewModule(cfg)
+	if err != nil {
+		return nil, nil, fmt.Errorf("init product rpc client: %w", err)
+	}
+	menuHandler, err := menu.NewModule(database, cfg)
+	if err != nil {
+		return nil, nil, fmt.Errorf("init menu rpc client: %w", err)
+	}
 	handlers := []server.Registerable{
 		area.NewModule(database, rdb, cfg),
 		customer.NewModule(database, rdb, cfg, alipayClient),
 		store.NewModule(database, rdb),
-		menu.NewModule(database),
-		product.NewModule(database),
+		menuHandler,
+		productHandler,
 		order.NewModule(cfg),
 	}
 

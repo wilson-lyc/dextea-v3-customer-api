@@ -3,162 +3,66 @@ package product
 import (
 	"context"
 
-	"github.com/dextea-v3/dextea-customer/api/internal/common/bizerror"
+	"github.com/dextea-v3/dextea-customer/api/internal/infra/productrpc"
+	productv1 "github.com/wilson-lyc/dextea-v3-proto/gen/go/product/v1"
 )
 
 type Service struct {
-	repo *Repository
+	client *productrpc.Client
 }
 
-func NewService(repo *Repository) *Service {
-	return &Service{repo: repo}
+func NewService(client *productrpc.Client) *Service {
+	return &Service{client: client}
 }
 
 func (s *Service) GetDetail(ctx context.Context, req GetProductDetailRequest) (*ProductDetailResponse, error) {
-	if s.repo.db == nil {
-		return nil, bizerror.New(bizerror.ErrMysqlDisabled)
-	}
-
-	p, err := s.repo.FindByID(ctx, req.ProductID)
+	detail, err := s.client.Detail(ctx, &productv1.GetProductDetailRequest{ProductId: uint64(req.ProductID), StoreId: uint64(req.StoreID)})
 	if err != nil {
 		return nil, err
 	}
-	if p == nil || p.Status != 1 {
-		return nil, bizerror.New(&bizerror.BizError{Code: 40400, Message: "资源不存在", Kind: bizerror.KindBusiness}, "商品不存在")
+	if detail == nil || detail.Product == nil {
+		return nil, productrpc.ErrNotFound
 	}
-
-	storeStatus := 0
-	if ss, err := s.repo.FindProductStoreStatus(ctx, req.ProductID, req.StoreID); err != nil {
-		return nil, err
-	} else if ss != nil {
-		storeStatus = *ss
-	}
-
-	items, err := s.repo.FindCustomizationItems(ctx, req.ProductID)
-	if err != nil {
-		return nil, err
-	}
-
-	itemIDs := make([]int64, 0, len(items))
-	for _, c := range items {
-		itemIDs = append(itemIDs, c.ID)
-	}
-
-	options, err := s.repo.FindCustomizationOptions(ctx, itemIDs)
-	if err != nil {
-		return nil, err
-	}
-
-	optionIDs := make([]int64, 0, len(options))
-	for _, o := range options {
-		optionIDs = append(optionIDs, o.ID)
-	}
-	optionStoreStatusMap := make(map[int64]int, len(optionIDs))
-	if statuses, err := s.repo.FindCustomizationOptionStoreStatuses(ctx, optionIDs, req.StoreID); err != nil {
-		return nil, err
-	} else {
-		for _, st := range statuses {
-			optionStoreStatusMap[st.OptionID] = st.Status
+	p := detail.Product
+	result := &ProductDetailResponse{ID: int64(p.Id), Name: p.Name, Brief: p.Brief, Description: p.Description, Status: int(detail.StoreStatus), Price: p.Price, Gallery: []ProductImageItem{}, Customizations: []CustomizationItemResponse{}}
+	if detail.Images != nil {
+		if detail.Images.Cover != nil {
+			result.Cover = &ProductImageItem{ID: int64(detail.Images.Cover.Id), URL: detail.Images.Cover.Url, Type: 1}
+		}
+		for i, image := range detail.Images.Gallery {
+			result.Gallery = append(result.Gallery, ProductImageItem{ID: int64(image.Id), URL: image.Url, Sort: i, Type: 2})
 		}
 	}
-
-	optionsByItem := make(map[int64][]CustomizationOption, len(items))
-	for _, o := range options {
-		optionsByItem[o.ItemID] = append(optionsByItem[o.ItemID], o)
-	}
-
-	customizationItems := make([]CustomizationItemResponse, 0, len(items))
-	for _, c := range items {
-		opts := optionsByItem[c.ID]
-		optionItems := make([]CustomizationOptionItem, 0, len(opts))
-		for _, o := range opts {
-			status := 0
-			if v, ok := optionStoreStatusMap[o.ID]; ok {
-				status = v
+	for _, item := range detail.CustomizationItems {
+		if item == nil || item.Item == nil {
+			continue
+		}
+		ci := CustomizationItemResponse{ID: int64(item.Item.Id), Name: item.Item.Name, Sort: int(item.Item.Sort), Status: int(item.Item.Status), Options: []CustomizationOptionItem{}}
+		for _, option := range item.Options {
+			if option != nil && option.Option != nil {
+				ci.Options = append(ci.Options, CustomizationOptionItem{ID: int64(option.Option.Id), Name: option.Option.Name, Price: option.Option.Price, Sort: int(option.Option.Sort), Status: int(option.StoreStatus)})
 			}
-			optionItems = append(optionItems, CustomizationOptionItem{
-				ID:      o.ID,
-				Name:    o.Name,
-				Price:   o.Price,
-				Sort:    o.Sort,
-				Status:  status,
-			})
 		}
-		customizationItems = append(customizationItems, CustomizationItemResponse{
-			ID:      c.ID,
-			Name:    c.Name,
-			Sort:    c.Sort,
-			Status:  c.Status,
-			Options: optionItems,
-		})
+		result.Customizations = append(result.Customizations, ci)
 	}
-
-	imgRows, err := s.repo.FindProductImages(ctx, req.ProductID)
-	if err != nil {
-		return nil, err
-	}
-	var cover *ProductImageItem
-	gallery := make([]ProductImageItem, 0, len(imgRows))
-	for _, im := range imgRows {
-		item := ProductImageItem{
-			ID:   im.ImageID,
-			URL:  im.URL,
-			Sort: im.Sort,
-			Type: im.Type,
-		}
-		switch im.Type {
-		case 1:
-			if cover == nil {
-				c := item
-				cover = &c
-			}
-		case 2:
-			gallery = append(gallery, item)
-		}
-	}
-
-	return &ProductDetailResponse{
-		ID:             p.ID,
-		Name:           p.Name,
-		Brief:          p.Brief,
-		Description:    p.Description,
-		Status:         storeStatus,
-		Price:          p.Price,
-		Cover:          cover,
-		Gallery:        gallery,
-		Customizations: customizationItems,
-	}, nil
+	return result, nil
 }
 
 func (s *Service) GetStoreStatus(ctx context.Context, req GetProductStoreStatusRequest) ([]ProductStoreStatusItem, error) {
-	if s.repo.db == nil {
-		return nil, bizerror.New(bizerror.ErrMysqlDisabled)
+	ids := make([]uint64, 0, len(req.ProductIDs))
+	for _, id := range req.ProductIDs {
+		ids = append(ids, uint64(id))
 	}
-
-	products, err := s.repo.FindByIDs(ctx, req.ProductIDs)
+	response, err := s.client.StoreStatuses(ctx, &productv1.GetProductStoreStatusesRequest{StoreId: uint64(req.StoreID), ProductIds: ids})
 	if err != nil {
 		return nil, err
 	}
-	if len(products) == 0 {
+	if response == nil {
 		return []ProductStoreStatusItem{}, nil
 	}
-
-	statusMap, err := s.repo.FindStoreStatuses(ctx, req.ProductIDs, req.StoreID)
-	if err != nil {
-		return nil, err
-	}
-
-	items := make([]ProductStoreStatusItem, 0, len(products))
-	for _, p := range products {
-		status := 0
-		if v, ok := statusMap[p.ID]; ok {
-			status = v
-		}
-		items = append(items, ProductStoreStatusItem{
-			ProductID: p.ID,
-			Name:      p.Name,
-			Status:    status,
-		})
+	items := make([]ProductStoreStatusItem, 0, len(response.Products))
+	for _, p := range response.Products {
+		items = append(items, ProductStoreStatusItem{ProductID: int64(p.ProductId), Name: p.Name, Status: int(p.StoreStatus)})
 	}
 	return items, nil
 }

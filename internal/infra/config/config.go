@@ -49,6 +49,11 @@ type Config struct {
 	OrderServiceGroup   string
 	OrderServiceMode    string
 
+	ProductServiceBaseURL string
+	ProductServiceName    string
+	ProductServiceGroup   string
+	ProductServiceMode    string
+
 	nacosRaw nacos.Config
 }
 
@@ -94,10 +99,14 @@ func Load() (*Config, error) {
 
 		AuthWhitelist: l.lookupList("AUTH_WHITELIST", []string{"/api/v1/customers/login"}),
 
-		OrderServiceBaseURL: l.get("ORDER_SERVICE_BASE_URL", ""),
-		OrderServiceName:    l.get("ORDER_SERVICE_NAME", ""),
-		OrderServiceGroup:   l.get("ORDER_SERVICE_GROUP", ""),
-		OrderServiceMode:    l.get("ORDER_SERVICE_MODE", "nacos"),
+		OrderServiceBaseURL:   l.get("ORDER_SERVICE_BASE_URL", ""),
+		OrderServiceName:      l.get("ORDER_SERVICE_NAME", ""),
+		OrderServiceGroup:     l.get("ORDER_SERVICE_GROUP", ""),
+		OrderServiceMode:      l.get("ORDER_SERVICE_MODE", "nacos"),
+		ProductServiceBaseURL: l.get("PRODUCT_SERVICE_BASE_URL", ""),
+		ProductServiceName:    l.get("PRODUCT_SERVICE_NAME", ""),
+		ProductServiceGroup:   l.get("PRODUCT_SERVICE_GROUP", ""),
+		ProductServiceMode:    l.get("PRODUCT_SERVICE_MODE", "nacos"),
 	}, nil
 }
 
@@ -196,6 +205,23 @@ func (c *Config) Validate() error {
 		if c.OrderServiceBaseURL == "" {
 			hasErr = true
 			b.WriteString("\n  [Order] ORDER_SERVICE_MODE=static requires ORDER_SERVICE_BASE_URL")
+		}
+	}
+
+	switch c.ProductServiceMode {
+	case "nacos":
+		if c.ProductServiceName == "" {
+			hasErr = true
+			b.WriteString("\n  [Product] PRODUCT_SERVICE_MODE=nacos requires PRODUCT_SERVICE_NAME")
+		}
+		if err := c.NacosConfig().ValidateConnection(); err != nil {
+			hasErr = true
+			b.WriteString("\n  [Product] PRODUCT_SERVICE_MODE=nacos requires Nacos connection params (NACOS_HOST/NACOS_PORT)")
+		}
+	default:
+		if c.ProductServiceBaseURL == "" {
+			hasErr = true
+			b.WriteString("\n  [Product] PRODUCT_SERVICE_MODE=static requires PRODUCT_SERVICE_BASE_URL")
 		}
 	}
 

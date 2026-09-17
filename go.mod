@@ -1,6 +1,6 @@
 module github.com/dextea-v3/dextea-customer/api
 
-go 1.26
+go 1.27.0
 
 require (
 	github.com/asmarques/geodist v1.0.1
@@ -12,6 +12,7 @@ require (
 	github.com/mozillazg/go-pinyin v0.21.0
 	github.com/nacos-group/nacos-sdk-go/v2 v2.3.5
 	github.com/redis/go-redis/v9 v9.21.0
+	github.com/wilson-lyc/dextea-v3-proto v0.1.0
 	go.opentelemetry.io/contrib/exporters/autoexport v0.70.0
 	go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin v0.70.0
 	go.opentelemetry.io/otel v1.45.0
@@ -22,7 +23,10 @@ require (
 	go.opentelemetry.io/otel/sdk/log v0.21.0
 	go.opentelemetry.io/otel/trace v1.45.0
 	go.uber.org/zap v1.21.0
+	google.golang.org/grpc v1.83.0
 )
+
+replace github.com/wilson-lyc/dextea-v3-proto => ../dextea-proto
 
 require (
 	filippo.io/edwards25519 v1.1.0 // indirect
@@ -116,7 +120,6 @@ require (
 	golang.org/x/time v0.1.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20260803160001-6ac0973c030d // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260803160001-6ac0973c030d // indirect
-	google.golang.org/grpc v1.83.0 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0 // indirect
