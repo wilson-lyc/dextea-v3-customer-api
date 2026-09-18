@@ -33,7 +33,10 @@ func NewClient(cfg *config.Config) (*Client, error) {
 	if cfg.ProductServiceMode == "nacos" {
 		naming, err := nacos.NewNamingClient(cfg.NacosConfig())
 		if err != nil {
-			return nil, fmt.Errorf("init product service discovery: %w", err)
+			if c.baseURL == "" {
+				return nil, fmt.Errorf("init product service discovery: %w", err)
+			}
+			return c, nil
 		}
 		c.resolver = nacos.NewResolver(naming, cfg.ProductServiceName, cfg.ProductServiceGroup)
 	}
@@ -44,10 +47,11 @@ func (c *Client) withClient(ctx context.Context, fn func(productv1.ProductServic
 	addr := c.baseURL
 	if c.resolver != nil {
 		resolved, err := c.resolver.Resolve()
-		if err != nil {
+		if err == nil {
+			addr = resolved
+		} else if addr == "" {
 			return bizerror.NewWith(ErrUnavailable, bizerror.WithCause(err))
 		}
-		addr = resolved
 	}
 	if addr == "" {
 		return bizerror.New(ErrUnavailable)
