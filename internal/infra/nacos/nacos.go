@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -18,24 +19,24 @@ import (
 )
 
 type Config struct {
+	Enabled     bool
 	Host        string
 	Port        uint64
 	NamespaceID string
 	Group       string
+	Cluster     string
 	DataID      string
 	Username    string
 	Password    string
+	InstanceIP  string
 	TimeoutMs   uint64
 	LogLevel    string
 }
 
 func (c Config) ValidateConnection() error {
 	var miss []string
-	if c.Host == "" {
-		miss = append(miss, "NACOS_HOST")
-	}
-	if c.Port == 0 {
-		miss = append(miss, "NACOS_PORT")
+	if c.Host == "" || c.Port == 0 {
+		miss = append(miss, "NACOS_SERVER_ADDR")
 	}
 	if len(miss) > 0 {
 		return fmt.Errorf("nacos connection params are missing: %s", strings.Join(miss, ", "))
@@ -141,28 +142,47 @@ func parseDotenv(content string) map[string]string {
 }
 
 func LoadFromEnv() Config {
+	serverAddr := strings.TrimSpace(os.Getenv("NACOS_SERVER_ADDR"))
+	host, port := splitServerAddr(serverAddr)
+	enabled := serverAddr != ""
+	if value, ok := os.LookupEnv("NACOS_ENABLED"); ok && strings.TrimSpace(value) != "" {
+		enabled = parseBool(value, enabled)
+	}
 	return Config{
-		Host:        os.Getenv("NACOS_HOST"),
-		Port:        uint64(atoiDefault(os.Getenv("NACOS_PORT"), 8848)),
-		NamespaceID: os.Getenv("NACOS_NAMESPACE_ID"),
+		Enabled:     enabled,
+		Host:        host,
+		Port:        port,
+		NamespaceID: os.Getenv("NACOS_NAMESPACE"),
 		Group:       getenvDefault("NACOS_GROUP", "DEFAULT_GROUP"),
+		Cluster:     getenvDefault("NACOS_CLUSTER", "DEFAULT"),
+		DataID:      os.Getenv("NACOS_DATA_ID"),
 		Username:    os.Getenv("NACOS_USERNAME"),
 		Password:    os.Getenv("NACOS_PASSWORD"),
+		InstanceIP:  strings.TrimSpace(os.Getenv("NACOS_INSTANCE_IP")),
 	}
 }
 
-func atoiDefault(s string, def int) int {
-	if s == "" {
-		return def
+func splitServerAddr(value string) (string, uint64) {
+	if value == "" {
+		return "", 0
 	}
-	n := 0
-	for _, r := range s {
-		if r < '0' || r > '9' {
-			return def
-		}
-		n = n*10 + int(r-'0')
+	host, portText, err := net.SplitHostPort(value)
+	if err != nil {
+		return "", 0
 	}
-	return n
+	port, err := strconv.ParseUint(portText, 10, 16)
+	if err != nil || port == 0 {
+		return "", 0
+	}
+	return host, port
+}
+
+func parseBool(value string, fallback bool) bool {
+	parsed, err := strconv.ParseBool(strings.TrimSpace(value))
+	if err != nil {
+		return fallback
+	}
+	return parsed
 }
 
 func getenvDefault(key, def string) string {
@@ -229,6 +249,7 @@ func (c *NamingClient) RegisterInstance(serviceName, group, ip string, port uint
 	_, err := c.inner.RegisterInstance(vo.RegisterInstanceParam{
 		ServiceName: serviceName,
 		GroupName:   group,
+		ClusterName: c.config.Cluster,
 		Ip:          ip,
 		Port:        port,
 		Weight:      1,
@@ -250,6 +271,7 @@ func (c *NamingClient) DeregisterInstance(serviceName, group, ip string, port ui
 	_, err := c.inner.DeregisterInstance(vo.DeregisterInstanceParam{
 		ServiceName: serviceName,
 		GroupName:   group,
+		Cluster:     c.config.Cluster,
 		Ip:          ip,
 		Port:        port,
 	})
@@ -341,7 +363,7 @@ type Registrar struct {
 }
 
 func NewRegistrar(cfg Config, name string, port uint64, metadata map[string]string) (*Registrar, error) {
-	if name == "" {
+	if !cfg.Enabled || name == "" {
 		return nil, nil
 	}
 	if !cfg.HasConnectionParams() {
@@ -352,6 +374,9 @@ func NewRegistrar(cfg Config, name string, port uint64, metadata map[string]stri
 		return nil, err
 	}
 	ip := outboundIP()
+	if cfg.InstanceIP != "" {
+		ip = cfg.InstanceIP
+	}
 	return &Registrar{
 		client:   client,
 		name:     name,

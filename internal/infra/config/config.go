@@ -210,9 +210,13 @@ func (c *Config) Validate() error {
 			hasErr = true
 			b.WriteString("\n  [Order] ORDER_SERVICE_MODE=nacos requires ORDER_SERVICE_NAME")
 		}
+		if !c.NacosConfig().Enabled {
+			hasErr = true
+			b.WriteString("\n  [Order] ORDER_SERVICE_MODE=nacos requires NACOS_ENABLED=true")
+		}
 		if err := c.NacosConfig().ValidateConnection(); err != nil {
 			hasErr = true
-			b.WriteString("\n  [Order] ORDER_SERVICE_MODE=nacos requires Nacos connection params (NACOS_HOST/NACOS_PORT)")
+			b.WriteString("\n  [Order] ORDER_SERVICE_MODE=nacos requires Nacos connection params (NACOS_SERVER_ADDR)")
 		}
 	default:
 		if c.OrderServiceBaseURL == "" {
@@ -227,9 +231,13 @@ func (c *Config) Validate() error {
 			hasErr = true
 			b.WriteString("\n  [Product] PRODUCT_SERVICE_MODE=nacos requires PRODUCT_SERVICE_NAME")
 		}
+		if !c.NacosConfig().Enabled {
+			hasErr = true
+			b.WriteString("\n  [Product] PRODUCT_SERVICE_MODE=nacos requires NACOS_ENABLED=true")
+		}
 		if err := c.NacosConfig().ValidateConnection(); err != nil {
 			hasErr = true
-			b.WriteString("\n  [Product] PRODUCT_SERVICE_MODE=nacos requires Nacos connection params (NACOS_HOST/NACOS_PORT)")
+			b.WriteString("\n  [Product] PRODUCT_SERVICE_MODE=nacos requires Nacos connection params (NACOS_SERVER_ADDR)")
 		}
 	default:
 		if c.ProductServiceBaseURL == "" {
@@ -244,9 +252,13 @@ func (c *Config) Validate() error {
 			hasErr = true
 			b.WriteString("\n  [Store] STORE_SERVICE_MODE=nacos requires STORE_SERVICE_NAME")
 		}
+		if !c.NacosConfig().Enabled {
+			hasErr = true
+			b.WriteString("\n  [Store] STORE_SERVICE_MODE=nacos requires NACOS_ENABLED=true")
+		}
 		if err := c.NacosConfig().ValidateConnection(); err != nil {
 			hasErr = true
-			b.WriteString("\n  [Store] STORE_SERVICE_MODE=nacos requires Nacos connection params (NACOS_HOST/NACOS_PORT)")
+			b.WriteString("\n  [Store] STORE_SERVICE_MODE=nacos requires Nacos connection params (NACOS_SERVER_ADDR)")
 		}
 	default:
 		if c.StoreServiceBaseURL == "" {
