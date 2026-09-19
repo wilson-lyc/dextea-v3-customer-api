@@ -52,9 +52,7 @@ GET /api/v1/area/cities
 ## 错误码
 | 码值 | 名称 | 说明 |
 | --- | --- | --- |
-| 43001 | ErrAmapUnavailable | 高德地图服务不可用（下游） |
-| 43002 | ErrAmapError | 高德地图服务返回错误（下游） |
-| 50300 | ErrMysqlDisabled | 数据库未启用 |
+| 43002 | Store Service 不可用 | 城市列表下游服务不可用 |
 | 50000 | ErrInternal | 系统异常兜底 |
 
 > 完整错误码定义见 [../error-codes.md](../error-codes.md)。

@@ -63,6 +63,7 @@ GET /api/v1/stores/detail?id=1001&longitude=116.397&latitude=39.908
 | 码值 | 名称 | 说明 |
 | --- | --- | --- |
 | 40001 | ErrBadRequest | 参数绑定失败（缺 `id` / `longitude` / `latitude`） |
+| 43002 | Store Service 不可用 | 门店服务下游不可用 |
 | 50000 | ErrInternal | 系统异常兜底 |
 
 > 完整错误码定义见 [../error-codes.md](../error-codes.md)。

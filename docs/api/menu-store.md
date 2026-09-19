@@ -93,7 +93,6 @@ GET /api/v1/stores/1001/menu
 | --- | --- | --- |
 | 40001 | ErrBadRequest | 门店 ID 不合法（HTTP 400，特例） |
 | 40400 | （内联） | 资源不存在（如门店未配置菜单） |
-| 50300 | ErrMysqlDisabled | 数据库未启用 |
 | 50000 | ErrInternal | 系统异常兜底 |
 
 > 完整错误码定义见 [../error-codes.md](../error-codes.md)。

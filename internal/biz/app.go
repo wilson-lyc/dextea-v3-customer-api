@@ -15,6 +15,7 @@ import (
 	"github.com/dextea-v3/dextea-customer/api/internal/infra/config"
 	"github.com/dextea-v3/dextea-customer/api/internal/infra/mysql"
 	"github.com/dextea-v3/dextea-customer/api/internal/infra/redis"
+	"github.com/dextea-v3/dextea-customer/api/internal/infra/storerpc"
 	"github.com/dextea-v3/dextea-customer/api/internal/transport/router"
 	"github.com/dextea-v3/dextea-customer/api/internal/transport/server"
 )
@@ -43,14 +44,18 @@ func New(cfg *config.Config) (*gin.Engine, func(), error) {
 	if err != nil {
 		return nil, nil, fmt.Errorf("init product rpc client: %w", err)
 	}
-	menuHandler, err := menu.NewModule(database, cfg)
+	storeClient, err := storerpc.NewClient(cfg)
+	if err != nil {
+		return nil, nil, fmt.Errorf("init store rpc client: %w", err)
+	}
+	menuHandler, err := menu.NewModule(cfg)
 	if err != nil {
 		return nil, nil, fmt.Errorf("init menu rpc client: %w", err)
 	}
 	handlers := []server.Registerable{
-		area.NewModule(database, rdb, cfg),
+		area.NewModule(storeClient, rdb, cfg),
 		customer.NewModule(database, rdb, cfg, alipayClient),
-		store.NewModule(database, rdb),
+		store.NewModule(storeClient),
 		menuHandler,
 		productHandler,
 		order.NewModule(cfg),
@@ -59,6 +64,7 @@ func New(cfg *config.Config) (*gin.Engine, func(), error) {
 	engine := router.Setup(cfg, handlers...)
 
 	cleanup := func() {
+		// Store RPC 当前按请求建立短连接，保留统一清理位以便未来切换连接池。
 		if database != nil {
 			_ = database.Close()
 		}

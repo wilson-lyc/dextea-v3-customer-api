@@ -15,6 +15,7 @@ import (
 
 	"github.com/dextea-v3/dextea-customer/api/internal/common/bizerror"
 	"github.com/dextea-v3/dextea-customer/api/internal/infra/config"
+	"github.com/dextea-v3/dextea-customer/api/internal/infra/storerpc"
 )
 
 const (
@@ -27,16 +28,16 @@ const citiesCacheKey = "dextea:store:cities"
 const citiesCacheTTL = 10 * time.Minute
 
 type Service struct {
-	repo       *Repository
+	store      *storerpc.Client
 	rdb        *redis.Client
 	httpClient *http.Client
 	apiKey     string
 }
 
-func NewService(cfg *config.Config, repo *Repository, rdb *redis.Client) *Service {
+func NewService(cfg *config.Config, store *storerpc.Client, rdb *redis.Client) *Service {
 	return &Service{
-		repo: repo,
-		rdb:  rdb,
+		store: store,
+		rdb:   rdb,
 		httpClient: &http.Client{
 			Timeout: amapHTTPTimeout,
 		},
@@ -91,14 +92,10 @@ func (s *Service) ReverseGeocode(ctx context.Context, req ReverseGeocodeRequest)
 	}, nil
 }
 
-// GetCities 获取城市列表
-// 优先从 Redis 缓存读取；缓存未命中或 Redis 不可用时回源 MySQL，
-// 命中后写回缓存以避免后续请求反复访问数据库。
-//
-// 临时调整：暂时关闭 Redis 缓存，全部直接走 MySQL 读取。
+// GetCities 获取城市列表。城市主数据由 Store Service 提供，customer 只负责
+// 缓存、拼音分组和 HTTP 响应格式转换。
 func (s *Service) GetCities(ctx context.Context) ([]CityLetterGroup, error) {
 	// 1. 尝试从 Redis 读取缓存
-	// 临时：关闭 Redis 缓存，跳过缓存读取，全部走 MySQL。
 	// if s.rdb != nil {
 	// 	if cached, err := s.rdb.Get(ctx, citiesCacheKey).Bytes(); err == nil && len(cached) > 0 {
 	// 		var result []CityLetterGroup
@@ -108,11 +105,12 @@ func (s *Service) GetCities(ctx context.Context) ([]CityLetterGroup, error) {
 	// 	}
 	// }
 
-	// 2. 缓存未命中（或不可用），回源数据库
-	cities, err := s.repo.GetDistinctCities(ctx)
+	// 2. 缓存未命中（或不可用），调用 Store Business RPC
+	resp, err := s.store.Cities(ctx)
 	if err != nil {
 		return nil, err
 	}
+	cities := resp.GetCities()
 
 	if len(cities) == 0 {
 		return []CityLetterGroup{}, nil
@@ -142,7 +140,6 @@ func (s *Service) GetCities(ctx context.Context) ([]CityLetterGroup, error) {
 	}
 
 	// 3. 写回缓存，供后续请求直接命中（Redis 不可用时静默跳过）。
-	// 临时：关闭 Redis 缓存，跳过缓存写入。
 	// if s.rdb != nil {
 	// 	if data, jsonErr := json.Marshal(result); jsonErr == nil {
 	// 		_ = s.rdb.Set(ctx, citiesCacheKey, data, citiesCacheTTL).Err()

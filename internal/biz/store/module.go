@@ -1,10 +1,7 @@
 package store
 
-import (
-	"github.com/jmoiron/sqlx"
-	"github.com/redis/go-redis/v9"
-)
+import "github.com/dextea-v3/dextea-customer/api/internal/infra/storerpc"
 
-func NewModule(database *sqlx.DB, rdb *redis.Client) *Handler {
-	return NewHandler(NewService(NewRepository(database), rdb))
+func NewModule(client *storerpc.Client) *Handler {
+	return NewHandler(NewService(client))
 }

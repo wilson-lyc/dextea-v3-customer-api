@@ -53,6 +53,13 @@ type Config struct {
 	ProductServiceName    string
 	ProductServiceGroup   string
 	ProductServiceMode    string
+	ProductServiceToken   string
+
+	StoreServiceBaseURL string
+	StoreServiceName    string
+	StoreServiceGroup   string
+	StoreServiceMode    string
+	StoreServiceToken   string
 
 	nacosRaw nacos.Config
 }
@@ -107,6 +114,12 @@ func Load() (*Config, error) {
 		ProductServiceName:    l.get("PRODUCT_SERVICE_NAME", ""),
 		ProductServiceGroup:   l.get("PRODUCT_SERVICE_GROUP", ""),
 		ProductServiceMode:    l.get("PRODUCT_SERVICE_MODE", "nacos"),
+		ProductServiceToken:   l.get("PRODUCT_BUSINESS_SERVICE_TOKEN", ""),
+		StoreServiceBaseURL:   l.get("STORE_SERVICE_BASE_URL", ""),
+		StoreServiceName:      l.get("STORE_SERVICE_NAME", ""),
+		StoreServiceGroup:     l.get("STORE_SERVICE_GROUP", ""),
+		StoreServiceMode:      l.get("STORE_SERVICE_MODE", "nacos"),
+		StoreServiceToken:     l.get("STORE_BUSINESS_SERVICE_TOKEN", ""),
 	}, nil
 }
 
@@ -222,6 +235,23 @@ func (c *Config) Validate() error {
 		if c.ProductServiceBaseURL == "" {
 			hasErr = true
 			b.WriteString("\n  [Product] PRODUCT_SERVICE_MODE=static requires PRODUCT_SERVICE_BASE_URL")
+		}
+	}
+
+	switch c.StoreServiceMode {
+	case "nacos":
+		if c.StoreServiceName == "" {
+			hasErr = true
+			b.WriteString("\n  [Store] STORE_SERVICE_MODE=nacos requires STORE_SERVICE_NAME")
+		}
+		if err := c.NacosConfig().ValidateConnection(); err != nil {
+			hasErr = true
+			b.WriteString("\n  [Store] STORE_SERVICE_MODE=nacos requires Nacos connection params (NACOS_HOST/NACOS_PORT)")
+		}
+	default:
+		if c.StoreServiceBaseURL == "" {
+			hasErr = true
+			b.WriteString("\n  [Store] STORE_SERVICE_MODE=static requires STORE_SERVICE_BASE_URL")
 		}
 	}
 

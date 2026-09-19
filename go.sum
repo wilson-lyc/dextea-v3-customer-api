@@ -64,8 +64,6 @@ github.com/aliyun/credentials-go v1.3.6/go.mod h1:1LxUuX7L5YrZUWzBrRyk0SwSdH4OmP
 github.com/aliyun/credentials-go v1.3.10/go.mod h1:Jm6d+xIgwJVLVWT561vy67ZRP4lPTQxMbEYRuT2Ti1U=
 github.com/aliyun/credentials-go v1.4.3 h1:N3iHyvHRMyOwY1+0qBLSf3hb5JFiOujVSVuEpgeGttY=
 github.com/aliyun/credentials-go v1.4.3/go.mod h1:Jm6d+xIgwJVLVWT561vy67ZRP4lPTQxMbEYRuT2Ti1U=
-github.com/asmarques/geodist v1.0.1 h1:+COdEKa83mKexsr0g7lzkLM/8KYeF/cVyws7HbwUCFE=
-github.com/asmarques/geodist v1.0.1/go.mod h1:/HS9CVQMJqR0ifB/pz1pCOi0f+QL6pqi8vUy0JCPOR0=
 github.com/benbjohnson/clock v1.1.0 h1:Q92kusRqC1XV2MjkWETPvjJVqKetz1OzxZB7mHJLju8=
 github.com/benbjohnson/clock v1.1.0/go.mod h1:J11/hYXuz8f4ySSvYwY0FKfm+ezbsZBKZxNJlLklBHA=
 github.com/beorn7/perks v1.0.1 h1:VlbKKnNfV8bJzeqoa4cOKqO6bYr3WgKZxO8Z16+hsOM=
